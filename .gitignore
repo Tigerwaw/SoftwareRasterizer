@@ -1,8 +1,10 @@
-# Prerequisites
+# Folders
 .vs
+Software.4db416b3
 
 # Compiled Object files
 *.obj
+*.bmp
 
 # Compiled Dynamic libraries
 *.dll
@@ -12,3 +14,4 @@
 
 # Executables
 *.exe
+*.pdb

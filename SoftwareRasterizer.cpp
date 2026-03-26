@@ -13,6 +13,8 @@ struct RenderTarget
 	unsigned height;
 	std::vector<DirectX::XMFLOAT3> pixelColors;
 
+	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x * width + aPixelCoordinate.y; }
+
 	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % width), static_cast<int32_t>(std::floor(i / width)) }; }
 	unsigned GetSize() const { return width * height; }
 
@@ -38,6 +40,7 @@ struct Vertex
 	DirectX::XMFLOAT3 normals;
 	DirectX::XMFLOAT3 tangents;
 
+	Vertex() = default;
 	Vertex(DirectX::XMFLOAT4 aPosition, DirectX::XMFLOAT4 aColor, DirectX::XMFLOAT2 aUV, DirectX::XMFLOAT3 aNormals, DirectX::XMFLOAT3 aTangents) :
 		position(aPosition),
 		color(aColor),
@@ -45,6 +48,21 @@ struct Vertex
 		normals(aNormals),
 		tangents(aTangents)
 	{ }
+};
+
+struct TrianglePrimitive
+{
+	Vertex vertices[3] = {};
+};
+
+struct PixelShaderInput
+{
+	unsigned renderTargetIndex;
+	DirectX::XMFLOAT2 position;
+	DirectX::XMFLOAT4 color;
+	DirectX::XMFLOAT2 uv;
+	DirectX::XMFLOAT3 normals;
+	DirectX::XMFLOAT3 tangents;
 };
 
 struct Model
@@ -97,23 +115,24 @@ static bool IsPointInsideTriangle(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, Di
 	return sideAB && sideBC && sideCA;
 }
 
-static DirectX::XMFLOAT2 ConvertVertexToScreen(DirectX::XMFLOAT4 aVertex, DirectX::XMMATRIX aWorldTransform, const Camera& aCamera)
+static DirectX::XMFLOAT3 CalculateBarycentricCoordinates(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aC, DirectX::XMFLOAT2 aP)
 {
-	DirectX::XMVECTOR vertexWorldPos = DirectX::XMVector4Transform(DirectX::XMLoadFloat4(&aVertex), aWorldTransform);
-	DirectX::XMVECTOR vertexViewPos = DirectX::XMVector4Transform(vertexWorldPos, DirectX::XMMatrixInverse(nullptr, aCamera.worldTransform));
-	DirectX::XMVECTOR vertexClipPos = DirectX::XMVector4Transform(vertexViewPos, aCamera.projectionMatrix);
+	DirectX::XMFLOAT2 v0 = { aB.x - aA.x, aB.y - aA.y };
+	DirectX::XMFLOAT2 v1 = { aC.x - aA.x, aC.y - aA.y };
+	DirectX::XMFLOAT2 v2 = { aP.x - aA.x, aP.y - aA.y };
 
-	DirectX::XMFLOAT4 vertexNDCPos;
-	DirectX::XMStoreFloat4(&vertexNDCPos, vertexClipPos);
-	vertexNDCPos.x /= vertexNDCPos.w;
-	vertexNDCPos.y /= vertexNDCPos.w;
-	vertexNDCPos.z /= vertexNDCPos.w;
+	float d00 = Dot(v0, v0);
+	float d01 = Dot(v0, v1);
+	float d11 = Dot(v1, v1);
+	float d20 = Dot(v2, v0);
+	float d21 = Dot(v2, v1);
 
-	vertexNDCPos.x = (vertexNDCPos.x + 1.0f) * 0.5f;
-	vertexNDCPos.y = (vertexNDCPos.y + 1.0f) * 0.5f;
-	vertexNDCPos.z = (vertexNDCPos.z + 1.0f) * 0.5f;
-	
-	return { vertexNDCPos.x * aCamera.width, vertexNDCPos.y * aCamera.height };
+	float denom = d00 * d11 - d01 * d01;
+	float c = (d00 * d21 - d01 * d20) / denom;
+	float b = (d11 * d20 - d01 * d21) / denom;
+	float a = 1.0f - b - c;
+
+	return { a, b, c };
 }
 
 static void WriteDataToBMPFile(const RenderTarget& aRenderTarget, const std::filesystem::path& aFilePath)
@@ -357,47 +376,145 @@ static void CreateCubeModel(Model& aModel)
 	srand(static_cast<unsigned>(time(NULL)));
 	for (auto& vertex : aModel.vertexList)
 	{
-		vertex.color = { static_cast<float>(rand()), static_cast<float>(rand()), static_cast<float>(rand()), 1.0f };
+		vertex.color = { static_cast<float>(rand() % 8), static_cast<float>(rand() % 8), static_cast<float>(rand() % 8), 1.0f };
 	}
+}
+
+static Vertex VertexShader(const Vertex& aVertex, DirectX::XMMATRIX aWorldTransform, const Camera& aCamera)
+{
+	DirectX::XMVECTOR vertexWorldPos = DirectX::XMVector4Transform(DirectX::XMLoadFloat4(&aVertex.position), aWorldTransform);
+	DirectX::XMVECTOR vertexViewPos = DirectX::XMVector4Transform(vertexWorldPos, DirectX::XMMatrixInverse(nullptr, aCamera.worldTransform));
+	DirectX::XMVECTOR vertexClipPos = DirectX::XMVector4Transform(vertexViewPos, aCamera.projectionMatrix);
+
+	Vertex newVertex = aVertex;
+	DirectX::XMStoreFloat4(&newVertex.position, vertexClipPos);
+
+	return newVertex;
+}
+
+static void Rasterizer(const RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList)
+{
+	DirectX::XMFLOAT2 vertexScreenPos[3] = {};
+
+	for (size_t i = 0; i < 3; i++)
+	{
+		DirectX::XMFLOAT4 vertexNDCPos = aTriangle.vertices[i].position;
+		vertexNDCPos.x /= vertexNDCPos.w;
+		vertexNDCPos.y /= vertexNDCPos.w;
+		vertexNDCPos.z /= vertexNDCPos.w;
+
+		vertexNDCPos.x = (vertexNDCPos.x + 1.0f) * 0.5f;
+		vertexNDCPos.y = (vertexNDCPos.y + 1.0f) * 0.5f;
+		vertexNDCPos.z = (vertexNDCPos.z + 1.0f) * 0.5f;
+		vertexScreenPos[i] = { vertexNDCPos.x * aRenderTarget.width, vertexNDCPos.y * aRenderTarget.height };
+	}
+
+	float minX = std::min(std::min(vertexScreenPos[0].x, vertexScreenPos[1].x), vertexScreenPos[2].x);
+	float maxX = std::max(std::max(vertexScreenPos[0].x, vertexScreenPos[1].x), vertexScreenPos[2].x);
+	float minY = std::min(std::min(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
+	float maxY = std::max(std::max(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
+
+	int32_t boundsStartXPixel = std::clamp(static_cast<unsigned>(std::floor(minX)), unsigned(0), aRenderTarget.width - 1);
+	int32_t boundsEndXPixel = std::clamp(static_cast<unsigned>(std::ceil(maxX)), unsigned(0), aRenderTarget.width - 1);
+	int32_t boundsStartYPixel = std::clamp(static_cast<unsigned>(std::floor(minY)), unsigned(0), aRenderTarget.height - 1);
+	int32_t boundsEndYPixel = std::clamp(static_cast<unsigned>(std::ceil(maxY)), unsigned(0), aRenderTarget.height - 1);
+
+	for (unsigned i = 0; i < aRenderTarget.GetSize(); i++)
+	{
+		DirectX::XMINT2 pixelCoords = aRenderTarget.GetPixelCoordinates(i);
+		bool insideXBounds = pixelCoords.x > boundsStartXPixel && pixelCoords.x < boundsEndXPixel;
+		bool insideYBounds = pixelCoords.y > boundsStartYPixel && pixelCoords.y < boundsEndYPixel;
+		if (insideXBounds && insideYBounds)
+		{
+			DirectX::XMFLOAT2 pixelPosition = { static_cast<float>(pixelCoords.x), static_cast<float>(pixelCoords.y) };
+			if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition))
+			{
+				DirectX::XMFLOAT3 baryCoords = CalculateBarycentricCoordinates(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition);
+				baryCoords.x *= 1.0f / aTriangle.vertices[0].position.w;
+				baryCoords.y *= 1.0f / aTriangle.vertices[1].position.w;
+				baryCoords.z *= 1.0f / aTriangle.vertices[2].position.w;
+
+				float sum = baryCoords.x + baryCoords.y + baryCoords.z;
+				baryCoords.x /= sum;
+				baryCoords.y /= sum;
+				baryCoords.z /= sum;
+
+				assert(baryCoords.x > 0.0f && baryCoords.x < 1.0f && baryCoords.y > 0.0f && baryCoords.y < 1.0f && baryCoords.z > 0.0f && baryCoords.z < 1.0f);
+
+				PixelShaderInput& pixel = outPixelList.emplace_back();
+				pixel.renderTargetIndex = i;
+				pixel.position = pixelPosition;
+				pixel.color.x = aTriangle.vertices[0].color.x * baryCoords.x + aTriangle.vertices[1].color.x * baryCoords.y + aTriangle.vertices[2].color.x * baryCoords.z;
+				pixel.color.y = aTriangle.vertices[0].color.y * baryCoords.x + aTriangle.vertices[1].color.y * baryCoords.y + aTriangle.vertices[2].color.y * baryCoords.z;
+				pixel.color.z = aTriangle.vertices[0].color.z * baryCoords.x + aTriangle.vertices[1].color.z * baryCoords.y + aTriangle.vertices[2].color.z * baryCoords.z;
+
+				pixel.normals.x = aTriangle.vertices[0].normals.x * baryCoords.x + aTriangle.vertices[1].normals.x * baryCoords.y + aTriangle.vertices[2].normals.x * baryCoords.z;
+				pixel.normals.y = aTriangle.vertices[0].normals.y * baryCoords.x + aTriangle.vertices[1].normals.y * baryCoords.y + aTriangle.vertices[2].normals.y * baryCoords.z;
+				pixel.normals.z = aTriangle.vertices[0].normals.z * baryCoords.x + aTriangle.vertices[1].normals.z * baryCoords.y + aTriangle.vertices[2].normals.z * baryCoords.z;
+
+				pixel.tangents.x = aTriangle.vertices[0].tangents.x * baryCoords.x + aTriangle.vertices[1].tangents.x * baryCoords.y + aTriangle.vertices[2].tangents.x * baryCoords.z;
+				pixel.tangents.y = aTriangle.vertices[0].tangents.y * baryCoords.x + aTriangle.vertices[1].tangents.y * baryCoords.y + aTriangle.vertices[2].tangents.y * baryCoords.z;
+				pixel.tangents.z = aTriangle.vertices[0].tangents.z * baryCoords.x + aTriangle.vertices[1].tangents.z * baryCoords.y + aTriangle.vertices[2].tangents.z * baryCoords.z;
+
+				pixel.uv.x = aTriangle.vertices[0].uv.x * baryCoords.x + aTriangle.vertices[1].uv.x * baryCoords.y + aTriangle.vertices[2].uv.x * baryCoords.z;
+				pixel.uv.y = aTriangle.vertices[0].uv.y * baryCoords.x + aTriangle.vertices[1].uv.y * baryCoords.y + aTriangle.vertices[2].uv.y * baryCoords.z;
+
+				// Interpolate all vertex values
+			}
+		}
+	}
+}
+
+static void PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput)
+{
+	aRenderTarget.pixelColors[aPixelInput.renderTargetIndex].x = aPixelInput.color.x;
+	aRenderTarget.pixelColors[aPixelInput.renderTargetIndex].y = aPixelInput.color.y;
+	aRenderTarget.pixelColors[aPixelInput.renderTargetIndex].z = aPixelInput.color.z;
 }
 
 static void RenderObject(RenderTarget& aRenderTarget, const Object& aObject, const Camera& aCamera)
 {
 	for (unsigned index = 0; index < static_cast<unsigned>(aObject.model.indexList.size()); index += 3)
 	{
-		const Vertex& vertexA = aObject.model.vertexList[aObject.model.indexList[index + 0]];
-		const Vertex& vertexB = aObject.model.vertexList[aObject.model.indexList[index + 1]];
-		const Vertex& vertexC = aObject.model.vertexList[aObject.model.indexList[index + 2]];
-		DirectX::XMFLOAT2 pointA = ConvertVertexToScreen(vertexA.position, aObject.worldTransform, aCamera);
-		DirectX::XMFLOAT2 pointB = ConvertVertexToScreen(vertexB.position, aObject.worldTransform, aCamera);
-		DirectX::XMFLOAT2 pointC = ConvertVertexToScreen(vertexC.position, aObject.worldTransform, aCamera);
+		TrianglePrimitive prim;
+		prim.vertices[0] = VertexShader(aObject.model.vertexList[aObject.model.indexList[index + 0]], aObject.worldTransform, aCamera);
+		prim.vertices[1] = VertexShader(aObject.model.vertexList[aObject.model.indexList[index + 1]], aObject.worldTransform, aCamera);
+		prim.vertices[2] = VertexShader(aObject.model.vertexList[aObject.model.indexList[index + 2]], aObject.worldTransform, aCamera);
 
-		float minX = std::min(std::min(pointA.x, pointB.x), pointC.x);
-		float maxX = std::max(std::max(pointA.x, pointB.x), pointC.x);
-		float minY = std::min(std::min(pointA.y, pointB.y), pointC.y);
-		float maxY = std::max(std::max(pointA.y, pointB.y), pointC.y);
+		std::vector<PixelShaderInput> pixelList;
+		Rasterizer(aRenderTarget, prim, pixelList);
 
-		int32_t boundsStartXPixel = std::clamp(static_cast<unsigned>(std::floor(minX)), unsigned(0), aRenderTarget.width - 1);
-		int32_t boundsEndXPixel = std::clamp(static_cast<unsigned>(std::ceil(maxX)), unsigned(0), aRenderTarget.width - 1);
-		int32_t boundsStartYPixel = std::clamp(static_cast<unsigned>(std::floor(minY)), unsigned(0), aRenderTarget.height - 1);
-		int32_t boundsEndYPixel = std::clamp(static_cast<unsigned>(std::ceil(maxY)), unsigned(0), aRenderTarget.height - 1);
-
-		for (unsigned i = 0; i < aRenderTarget.GetSize(); i++)
+		for (auto& pixel : pixelList)
 		{
-			DirectX::XMINT2 pixelCoords = aRenderTarget.GetPixelCoordinates(i);
-			bool insideXBounds = pixelCoords.x > boundsStartXPixel && pixelCoords.x < boundsEndXPixel;
-			bool insideYBounds = pixelCoords.y > boundsStartYPixel && pixelCoords.y < boundsEndYPixel;
-			if (insideXBounds && insideYBounds)
-			{
-				DirectX::XMFLOAT2 pixelPosition = { static_cast<float>(pixelCoords.x), static_cast<float>(pixelCoords.y) };
-				if (IsPointInsideTriangle(pointA, pointB, pointC, pixelPosition))
-				{
-					aRenderTarget.pixelColors[i].x = LerpValue(vertexA.color.x, LerpValue(vertexB.color.x, vertexC.color.x, 0.5f), 0.5f);
-					aRenderTarget.pixelColors[i].y = LerpValue(vertexA.color.y, LerpValue(vertexB.color.y, vertexC.color.y, 0.5f), 0.5f);
-					aRenderTarget.pixelColors[i].z = LerpValue(vertexA.color.z, LerpValue(vertexB.color.z, vertexC.color.z, 0.5f), 0.5f);
-				}
-			}
+			PixelShader(aRenderTarget, pixel);
 		}
+	}
+}
+
+static void RenderStillObject(RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
+{
+	RenderObject(aRenderTarget, aObject, aCamera);
+	WriteDataToBMPFile(aRenderTarget, std::filesystem::path("render.bmp"));
+}
+
+static void RenderRotatingCube(RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
+{
+	float objectYaw = 0.0f;
+	for (int i = 0; i < 10; i++)
+	{
+		objectYaw += 6.0f;
+
+		aObject.worldTransform = DirectX::XMMatrixAffineTransformation(
+			{ 1.0f, 1.0f, 1.0f, 1.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectYaw)),
+			{ 0.0f, 0.0f, 5.0f, 1.0f }
+		);
+
+		RenderObject(aRenderTarget, aObject, aCamera);
+		std::filesystem::path path("frame_" + std::to_string(i) + ".bmp");
+		WriteDataToBMPFile(aRenderTarget, path);
+		aRenderTarget.ClearRenderTarget();
 	}
 }
 
@@ -429,24 +546,7 @@ int main()
 	);
 	
 	CreateCubeModel(object.model);
-	//RenderObject(renderTarget, object, camera);
-	//WriteDataToBMPFile(renderTarget, std::filesystem::path("render.bmp"));
-
-	float objectYaw = 0.0f;
-	for (int i = 0; i < 10; i++)
-	{
-		objectYaw += 6.0f;
-
-		object.worldTransform = DirectX::XMMatrixAffineTransformation(
-			{ 1.0f, 1.0f, 1.0f, 1.0f },
-			{ 0.0f, 0.0f, 0.0f, 1.0f },
-			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectYaw)),
-			{ 0.0f, 0.0f, 5.0f, 1.0f }
-		);
-
-		RenderObject(renderTarget, object, camera);
-		std::filesystem::path path("frame_" + std::to_string(i) + ".bmp");
-		WriteDataToBMPFile(renderTarget, path);
-		renderTarget.ClearRenderTarget();
-	}
+	
+	RenderStillObject(renderTarget, camera, object);
+	//RenderRotatingCube(renderTarget, camera, object);
 }
