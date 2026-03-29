@@ -104,7 +104,7 @@ static bool IsPointOnRightSideOfLine(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB,
 {
 	DirectX::XMFLOAT2 apDiff = { aP.x - aA.x, aP.y - aA.y };
 	DirectX::XMFLOAT2 apPerpendicular = GetPerpendicular({ aB.x - aA.x, aB.y - aA.y });
-	return Dot(apDiff, apPerpendicular) >= 0;
+	return Dot(apDiff, apPerpendicular) >= 0.0f;
 }
 
 static bool IsPointInsideTriangle(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aC, DirectX::XMFLOAT2 aP)
@@ -376,7 +376,7 @@ static void CreateCubeModel(Model& aModel)
 	srand(static_cast<unsigned>(time(NULL)));
 	for (auto& vertex : aModel.vertexList)
 	{
-		vertex.color = { static_cast<float>(rand() % 8), static_cast<float>(rand() % 8), static_cast<float>(rand() % 8), 1.0f };
+		vertex.color = { static_cast<float>(rand()) / RAND_MAX + 1.0f, static_cast<float>(rand()) / RAND_MAX + 1.0f, static_cast<float>(rand()) / RAND_MAX + 1.0f, 1.0f };
 	}
 }
 
@@ -429,35 +429,35 @@ static void Rasterizer(const RenderTarget& aRenderTarget, const TrianglePrimitiv
 			DirectX::XMFLOAT2 pixelPosition = { static_cast<float>(pixelCoords.x), static_cast<float>(pixelCoords.y) };
 			if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition))
 			{
-				DirectX::XMFLOAT3 baryCoords = CalculateBarycentricCoordinates(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition);
-				baryCoords.x *= 1.0f / aTriangle.vertices[0].position.w;
-				baryCoords.y *= 1.0f / aTriangle.vertices[1].position.w;
-				baryCoords.z *= 1.0f / aTriangle.vertices[2].position.w;
+				DirectX::XMFLOAT3 weights = CalculateBarycentricCoordinates(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition);
+				weights.x *= 1.0f / aTriangle.vertices[0].position.w;
+				weights.y *= 1.0f / aTriangle.vertices[1].position.w;
+				weights.z *= 1.0f / aTriangle.vertices[2].position.w;
 
-				float sum = baryCoords.x + baryCoords.y + baryCoords.z;
-				baryCoords.x /= sum;
-				baryCoords.y /= sum;
-				baryCoords.z /= sum;
+				float sum = weights.x + weights.y + weights.z;
+				weights.x /= sum;
+				weights.y /= sum;
+				weights.z /= sum;
 
-				assert(baryCoords.x > 0.0f && baryCoords.x < 1.0f && baryCoords.y > 0.0f && baryCoords.y < 1.0f && baryCoords.z > 0.0f && baryCoords.z < 1.0f);
+				assert(weights.x >= 0.0f && weights.x <= 1.0f && weights.y >= 0.0f && weights.y <= 1.0f && weights.z >= 0.0f && weights.z <= 1.0f);
 
 				PixelShaderInput& pixel = outPixelList.emplace_back();
 				pixel.renderTargetIndex = i;
 				pixel.position = pixelPosition;
-				pixel.color.x = aTriangle.vertices[0].color.x * baryCoords.x + aTriangle.vertices[1].color.x * baryCoords.y + aTriangle.vertices[2].color.x * baryCoords.z;
-				pixel.color.y = aTriangle.vertices[0].color.y * baryCoords.x + aTriangle.vertices[1].color.y * baryCoords.y + aTriangle.vertices[2].color.y * baryCoords.z;
-				pixel.color.z = aTriangle.vertices[0].color.z * baryCoords.x + aTriangle.vertices[1].color.z * baryCoords.y + aTriangle.vertices[2].color.z * baryCoords.z;
+				pixel.color.x = aTriangle.vertices[0].color.x * weights.x + aTriangle.vertices[1].color.x * weights.y + aTriangle.vertices[2].color.x * weights.z;
+				pixel.color.y = aTriangle.vertices[0].color.y * weights.x + aTriangle.vertices[1].color.y * weights.y + aTriangle.vertices[2].color.y * weights.z;
+				pixel.color.z = aTriangle.vertices[0].color.z * weights.x + aTriangle.vertices[1].color.z * weights.y + aTriangle.vertices[2].color.z * weights.z;
 
-				pixel.normals.x = aTriangle.vertices[0].normals.x * baryCoords.x + aTriangle.vertices[1].normals.x * baryCoords.y + aTriangle.vertices[2].normals.x * baryCoords.z;
-				pixel.normals.y = aTriangle.vertices[0].normals.y * baryCoords.x + aTriangle.vertices[1].normals.y * baryCoords.y + aTriangle.vertices[2].normals.y * baryCoords.z;
-				pixel.normals.z = aTriangle.vertices[0].normals.z * baryCoords.x + aTriangle.vertices[1].normals.z * baryCoords.y + aTriangle.vertices[2].normals.z * baryCoords.z;
+				pixel.normals.x = aTriangle.vertices[0].normals.x * weights.x + aTriangle.vertices[1].normals.x * weights.y + aTriangle.vertices[2].normals.x * weights.z;
+				pixel.normals.y = aTriangle.vertices[0].normals.y * weights.x + aTriangle.vertices[1].normals.y * weights.y + aTriangle.vertices[2].normals.y * weights.z;
+				pixel.normals.z = aTriangle.vertices[0].normals.z * weights.x + aTriangle.vertices[1].normals.z * weights.y + aTriangle.vertices[2].normals.z * weights.z;
 
-				pixel.tangents.x = aTriangle.vertices[0].tangents.x * baryCoords.x + aTriangle.vertices[1].tangents.x * baryCoords.y + aTriangle.vertices[2].tangents.x * baryCoords.z;
-				pixel.tangents.y = aTriangle.vertices[0].tangents.y * baryCoords.x + aTriangle.vertices[1].tangents.y * baryCoords.y + aTriangle.vertices[2].tangents.y * baryCoords.z;
-				pixel.tangents.z = aTriangle.vertices[0].tangents.z * baryCoords.x + aTriangle.vertices[1].tangents.z * baryCoords.y + aTriangle.vertices[2].tangents.z * baryCoords.z;
+				pixel.tangents.x = aTriangle.vertices[0].tangents.x * weights.x + aTriangle.vertices[1].tangents.x * weights.y + aTriangle.vertices[2].tangents.x * weights.z;
+				pixel.tangents.y = aTriangle.vertices[0].tangents.y * weights.x + aTriangle.vertices[1].tangents.y * weights.y + aTriangle.vertices[2].tangents.y * weights.z;
+				pixel.tangents.z = aTriangle.vertices[0].tangents.z * weights.x + aTriangle.vertices[1].tangents.z * weights.y + aTriangle.vertices[2].tangents.z * weights.z;
 
-				pixel.uv.x = aTriangle.vertices[0].uv.x * baryCoords.x + aTriangle.vertices[1].uv.x * baryCoords.y + aTriangle.vertices[2].uv.x * baryCoords.z;
-				pixel.uv.y = aTriangle.vertices[0].uv.y * baryCoords.x + aTriangle.vertices[1].uv.y * baryCoords.y + aTriangle.vertices[2].uv.y * baryCoords.z;
+				pixel.uv.x = aTriangle.vertices[0].uv.x * weights.x + aTriangle.vertices[1].uv.x * weights.y + aTriangle.vertices[2].uv.x * weights.z;
+				pixel.uv.y = aTriangle.vertices[0].uv.y * weights.x + aTriangle.vertices[1].uv.y * weights.y + aTriangle.vertices[2].uv.y * weights.z;
 
 				// Interpolate all vertex values
 			}
