@@ -95,6 +95,28 @@ static float Dot(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB)
     return aA.x * aB.x + aA.y * aB.y;
 }
 
+static float Dot(DirectX::XMFLOAT3 aA, DirectX::XMFLOAT3 aB)
+{
+    return aA.x * aB.x + aA.y * aB.y + aA.z * aB.z;
+}
+
+static DirectX::XMFLOAT3 Normalize(DirectX::XMFLOAT3 aVector)
+{
+	float lengthSqr = Dot(aVector, aVector);
+	float length = sqrt(lengthSqr);
+
+	if (length > 0.0f)
+	{
+		length = 1.0f / length;
+	}
+
+	aVector.x *= length;
+	aVector.y *= length;
+	aVector.z *= length;
+
+	return aVector;
+}
+
 static DirectX::XMFLOAT2 GetPerpendicular(DirectX::XMFLOAT2 aVector)
 {
     return { aVector.y, -aVector.x };
@@ -202,7 +224,7 @@ static void WriteDataToBMPFile(const RenderTarget& aRenderTarget, const std::fil
 
 static void CreateCubeModel(Model& aModel)
 {
-	DirectX::XMFLOAT4 emptyColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	DirectX::XMFLOAT4 emptyColor = { 0.2f, 0.2f, 0.2f, 1.0f };
 	DirectX::XMFLOAT2 uv[24] = {
 		{1.0f, 0.0f},
 		{1.0f, 1.0f},
@@ -373,11 +395,11 @@ static void CreateCubeModel(Model& aModel)
 		20,22,23
 	};
 
-	srand(static_cast<unsigned>(time(NULL)));
-	for (auto& vertex : aModel.vertexList)
-	{
-		vertex.color = { static_cast<float>(rand()) / RAND_MAX + 1.0f, static_cast<float>(rand()) / RAND_MAX + 1.0f, static_cast<float>(rand()) / RAND_MAX + 1.0f, 1.0f };
-	}
+	//srand(static_cast<unsigned>(time(NULL)));
+	//for (auto& vertex : aModel.vertexList)
+	//{
+	//	vertex.color = { static_cast<float>(rand()) / RAND_MAX + 1.0f, static_cast<float>(rand()) / RAND_MAX + 1.0f, static_cast<float>(rand()) / RAND_MAX + 1.0f, 1.0f };
+	//}
 }
 
 static Vertex VertexShader(const Vertex& aVertex, DirectX::XMMATRIX aWorldTransform, const Camera& aCamera)
@@ -386,8 +408,15 @@ static Vertex VertexShader(const Vertex& aVertex, DirectX::XMMATRIX aWorldTransf
 	DirectX::XMVECTOR vertexViewPos = DirectX::XMVector4Transform(vertexWorldPos, DirectX::XMMatrixInverse(nullptr, aCamera.worldTransform));
 	DirectX::XMVECTOR vertexClipPos = DirectX::XMVector4Transform(vertexViewPos, aCamera.projectionMatrix);
 
+	DirectX::XMVECTOR worldNormals = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.normals.x, aVertex.normals.y, aVertex.normals.z, 0.0f), aWorldTransform);
+	DirectX::XMFLOAT4 worldNormalsFloat = {};
+	DirectX::XMStoreFloat4(&worldNormalsFloat, worldNormals);
+
 	Vertex newVertex = aVertex;
 	DirectX::XMStoreFloat4(&newVertex.position, vertexClipPos);
+	newVertex.normals.x = worldNormalsFloat.x;
+	newVertex.normals.y = worldNormalsFloat.y;
+	newVertex.normals.z = worldNormalsFloat.z;
 
 	return newVertex;
 }
@@ -467,9 +496,37 @@ static void Rasterizer(const RenderTarget& aRenderTarget, const TrianglePrimitiv
 
 static void PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput)
 {
-	aRenderTarget.pixelColors[aPixelInput.renderTargetIndex].x = aPixelInput.color.x;
-	aRenderTarget.pixelColors[aPixelInput.renderTargetIndex].y = aPixelInput.color.y;
-	aRenderTarget.pixelColors[aPixelInput.renderTargetIndex].z = aPixelInput.color.z;
+	const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(0.5f, 1.0f, -0.5f));
+	const DirectX::XMFLOAT3 specColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
+
+	DirectX::XMFLOAT3 cameraDir = { 0.0f, 0.0f, 1.0f };
+	cameraDir = Normalize(cameraDir);
+	DirectX::XMFLOAT3 halfDir = lightDir;
+	halfDir.x += cameraDir.x;
+	halfDir.y += cameraDir.y;
+	halfDir.z += cameraDir.z;
+	halfDir = Normalize(halfDir);
+
+	DirectX::XMFLOAT3 adjustedNormals = aPixelInput.normals;
+	adjustedNormals.x = (adjustedNormals.x + 1.0f) * 0.5f;
+	adjustedNormals.y = (adjustedNormals.y + 1.0f) * 0.5f;
+	adjustedNormals.z = (adjustedNormals.z + 1.0f) * 0.5f;
+	adjustedNormals = Normalize(adjustedNormals);
+
+	float specAngle = std::fmax(Dot(adjustedNormals, halfDir), 0.0f);
+	float specularIntensity = pow(specAngle, 8.0f);
+
+	DirectX::XMFLOAT3 spec = {};
+	spec.x = specColor.x * specularIntensity;
+	spec.y = specColor.y * specularIntensity;
+	spec.z = specColor.z * specularIntensity;
+
+	DirectX::XMFLOAT3 color = {};
+	color.x = aPixelInput.color.x + spec.x;
+	color.y = aPixelInput.color.y + spec.y;
+	color.z = aPixelInput.color.z + spec.z;
+
+	aRenderTarget.pixelColors[aPixelInput.renderTargetIndex] = color;
 }
 
 static void RenderObject(RenderTarget& aRenderTarget, const Object& aObject, const Camera& aCamera)
@@ -500,7 +557,7 @@ static void RenderStillObject(RenderTarget& aRenderTarget, const Camera& aCamera
 static void RenderRotatingCube(RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
 {
 	float objectYaw = 0.0f;
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < 20; i++)
 	{
 		objectYaw += 6.0f;
 
@@ -547,6 +604,6 @@ int main()
 	
 	CreateCubeModel(object.model);
 	
-	RenderStillObject(renderTarget, camera, object);
-	//RenderRotatingCube(renderTarget, camera, object);
+	//RenderStillObject(renderTarget, camera, object);
+	RenderRotatingCube(renderTarget, camera, object);
 }
