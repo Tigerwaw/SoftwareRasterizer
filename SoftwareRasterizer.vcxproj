@@ -124,7 +124,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SoftwareRasterizer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="DataStructs.hpp" />
+    <ClInclude Include="Renderer.h" />
+    <ClInclude Include="Utilities.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
