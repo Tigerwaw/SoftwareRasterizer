@@ -4,10 +4,11 @@
 class Renderer
 {
 public:
-	void RenderObject(RenderTarget& aRenderTarget, const Object& aObject, const Camera& aCamera);
+	void RenderObject(RenderTarget& aRenderTarget, const Model& aModel, const ShaderBuffer& aShaderBuffer);
 
 private:
-	Vertex VertexShader(const Vertex& aVertex, DirectX::XMMATRIX aWorldTransform, const Camera& aCamera);
+	void DrawTriangle(RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, const ShaderBuffer& aShaderBuffer);
+	Vertex VertexShader(const Vertex& aVertex, const ShaderBuffer& aShaderBuffer);
 	void RasterizeTriangle(const RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList);
 	void PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput);
 };

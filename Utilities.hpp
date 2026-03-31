@@ -205,34 +205,34 @@ static void CreateCubeModel(Model& aModel)
 	{ 1, 0, 0 }
 	};
 
-	aModel.vertexList.reserve(24);
+	aModel.VertexList.reserve(24);
 
-	aModel.vertexList.emplace_back(pos[0], emptyColor, uv[0], normals[0], tangents[0]);
-	aModel.vertexList.emplace_back(pos[1], emptyColor, uv[1], normals[1], tangents[1]);
-	aModel.vertexList.emplace_back(pos[2], emptyColor, uv[2], normals[2], tangents[2]);
-	aModel.vertexList.emplace_back(pos[3], emptyColor, uv[3], normals[3], tangents[3]);
-	aModel.vertexList.emplace_back(pos[4], emptyColor, uv[4], normals[4], tangents[4]);
-	aModel.vertexList.emplace_back(pos[5], emptyColor, uv[5], normals[5], tangents[5]);
-	aModel.vertexList.emplace_back(pos[6], emptyColor, uv[6], normals[6], tangents[6]);
-	aModel.vertexList.emplace_back(pos[7], emptyColor, uv[7], normals[7], tangents[7]);
-	aModel.vertexList.emplace_back(pos[8], emptyColor, uv[8], normals[8], tangents[8]);
-	aModel.vertexList.emplace_back(pos[9], emptyColor, uv[9], normals[9], tangents[9]);
-	aModel.vertexList.emplace_back(pos[10], emptyColor, uv[10], normals[10], tangents[10]);
-	aModel.vertexList.emplace_back(pos[11], emptyColor, uv[11], normals[11], tangents[11]);
-	aModel.vertexList.emplace_back(pos[12], emptyColor, uv[12], normals[12], tangents[12]);
-	aModel.vertexList.emplace_back(pos[13], emptyColor, uv[13], normals[13], tangents[13]);
-	aModel.vertexList.emplace_back(pos[14], emptyColor, uv[14], normals[14], tangents[14]);
-	aModel.vertexList.emplace_back(pos[15], emptyColor, uv[15], normals[15], tangents[15]);
-	aModel.vertexList.emplace_back(pos[16], emptyColor, uv[16], normals[16], tangents[16]);
-	aModel.vertexList.emplace_back(pos[17], emptyColor, uv[17], normals[17], tangents[17]);
-	aModel.vertexList.emplace_back(pos[18], emptyColor, uv[18], normals[18], tangents[18]);
-	aModel.vertexList.emplace_back(pos[19], emptyColor, uv[19], normals[19], tangents[19]);
-	aModel.vertexList.emplace_back(pos[20], emptyColor, uv[20], normals[20], tangents[20]);
-	aModel.vertexList.emplace_back(pos[21], emptyColor, uv[21], normals[21], tangents[21]);
-	aModel.vertexList.emplace_back(pos[22], emptyColor, uv[22], normals[22], tangents[22]);
-	aModel.vertexList.emplace_back(pos[23], emptyColor, uv[23], normals[23], tangents[23]);
+	aModel.VertexList.emplace_back(pos[0], emptyColor, uv[0], normals[0], tangents[0]);
+	aModel.VertexList.emplace_back(pos[1], emptyColor, uv[1], normals[1], tangents[1]);
+	aModel.VertexList.emplace_back(pos[2], emptyColor, uv[2], normals[2], tangents[2]);
+	aModel.VertexList.emplace_back(pos[3], emptyColor, uv[3], normals[3], tangents[3]);
+	aModel.VertexList.emplace_back(pos[4], emptyColor, uv[4], normals[4], tangents[4]);
+	aModel.VertexList.emplace_back(pos[5], emptyColor, uv[5], normals[5], tangents[5]);
+	aModel.VertexList.emplace_back(pos[6], emptyColor, uv[6], normals[6], tangents[6]);
+	aModel.VertexList.emplace_back(pos[7], emptyColor, uv[7], normals[7], tangents[7]);
+	aModel.VertexList.emplace_back(pos[8], emptyColor, uv[8], normals[8], tangents[8]);
+	aModel.VertexList.emplace_back(pos[9], emptyColor, uv[9], normals[9], tangents[9]);
+	aModel.VertexList.emplace_back(pos[10], emptyColor, uv[10], normals[10], tangents[10]);
+	aModel.VertexList.emplace_back(pos[11], emptyColor, uv[11], normals[11], tangents[11]);
+	aModel.VertexList.emplace_back(pos[12], emptyColor, uv[12], normals[12], tangents[12]);
+	aModel.VertexList.emplace_back(pos[13], emptyColor, uv[13], normals[13], tangents[13]);
+	aModel.VertexList.emplace_back(pos[14], emptyColor, uv[14], normals[14], tangents[14]);
+	aModel.VertexList.emplace_back(pos[15], emptyColor, uv[15], normals[15], tangents[15]);
+	aModel.VertexList.emplace_back(pos[16], emptyColor, uv[16], normals[16], tangents[16]);
+	aModel.VertexList.emplace_back(pos[17], emptyColor, uv[17], normals[17], tangents[17]);
+	aModel.VertexList.emplace_back(pos[18], emptyColor, uv[18], normals[18], tangents[18]);
+	aModel.VertexList.emplace_back(pos[19], emptyColor, uv[19], normals[19], tangents[19]);
+	aModel.VertexList.emplace_back(pos[20], emptyColor, uv[20], normals[20], tangents[20]);
+	aModel.VertexList.emplace_back(pos[21], emptyColor, uv[21], normals[21], tangents[21]);
+	aModel.VertexList.emplace_back(pos[22], emptyColor, uv[22], normals[22], tangents[22]);
+	aModel.VertexList.emplace_back(pos[23], emptyColor, uv[23], normals[23], tangents[23]);
 
-	aModel.indexList = {
+	aModel.IndexList = {
 		0,1,2,
 		0,2,3,
 		4,5,6,
@@ -258,7 +258,7 @@ static void WriteDataToBMPFile(const RenderTarget& aRenderTarget, const std::fil
 {
 	const unsigned headerSize = 14;
 	const unsigned infoHeaderSize = 40;
-	unsigned dataSize = static_cast<unsigned>(aRenderTarget.pixelColors.size() * 4);
+	unsigned dataSize = static_cast<unsigned>(aRenderTarget.PixelColors.size() * 4);
 	unsigned dataOffset = headerSize + infoHeaderSize;
 	unsigned fileSize = dataOffset + dataSize;
 	short planes = 1;
@@ -279,14 +279,14 @@ static void WriteDataToBMPFile(const RenderTarget& aRenderTarget, const std::fil
 	infoHeader[1] = static_cast<char>(infoHeaderSize >> 8);
 	infoHeader[2] = static_cast<char>(infoHeaderSize >> 16);
 	infoHeader[3] = static_cast<char>(infoHeaderSize >> 24);
-	infoHeader[4] = static_cast<char>(aRenderTarget.width);
-	infoHeader[5] = static_cast<char>(aRenderTarget.width >> 8);
-	infoHeader[6] = static_cast<char>(aRenderTarget.width >> 16);
-	infoHeader[7] = static_cast<char>(aRenderTarget.width >> 24);
-	infoHeader[8] = static_cast<char>(aRenderTarget.height);
-	infoHeader[9] = static_cast<char>(aRenderTarget.height >> 8);
-	infoHeader[10] = static_cast<char>(aRenderTarget.height >> 16);
-	infoHeader[11] = static_cast<char>(aRenderTarget.height >> 24);
+	infoHeader[4] = static_cast<char>(aRenderTarget.Width);
+	infoHeader[5] = static_cast<char>(aRenderTarget.Width >> 8);
+	infoHeader[6] = static_cast<char>(aRenderTarget.Width >> 16);
+	infoHeader[7] = static_cast<char>(aRenderTarget.Width >> 24);
+	infoHeader[8] = static_cast<char>(aRenderTarget.Height);
+	infoHeader[9] = static_cast<char>(aRenderTarget.Height >> 8);
+	infoHeader[10] = static_cast<char>(aRenderTarget.Height >> 16);
+	infoHeader[11] = static_cast<char>(aRenderTarget.Height >> 24);
 	infoHeader[12] = static_cast<char>(planes);
 	infoHeader[13] = static_cast<char>(planes >> 8);
 	infoHeader[14] = static_cast<char>(bitsPerPixel);
@@ -305,7 +305,7 @@ static void WriteDataToBMPFile(const RenderTarget& aRenderTarget, const std::fil
 	file.write(fileHeader, headerSize);
 	file.write(infoHeader, infoHeaderSize);
 
-	for (auto& pixelColor : aRenderTarget.pixelColors)
+	for (auto& pixelColor : aRenderTarget.PixelColors)
 	{
 		char colors[4] = { 0 };
 		colors[0] = static_cast<char>(pixelColor.z * 255);

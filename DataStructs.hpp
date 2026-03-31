@@ -8,79 +8,86 @@
 
 struct RenderTarget
 {
-	unsigned width;
-	unsigned height;
-	std::vector<DirectX::XMFLOAT3> pixelColors;
+	unsigned Width;
+	unsigned Height;
+	std::vector<DirectX::XMFLOAT3> PixelColors;
 
-	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x * width + aPixelCoordinate.y; }
+	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x * Width + aPixelCoordinate.y; }
 
-	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % width), static_cast<int32_t>(std::floor(i / width)) }; }
-	unsigned GetSize() const { return width * height; }
+	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % Width), static_cast<int32_t>(std::floor(i / Width)) }; }
+	unsigned GetSize() const { return Width * Height; }
 
 	void InitializeRenderTarget(unsigned aWidth, unsigned aHeight)
 	{
-		width = aWidth;
-		height = aHeight;
-		pixelColors.resize(static_cast<size_t>(width * height));
+		Width = aWidth;
+		Height = aHeight;
+		PixelColors.resize(static_cast<size_t>(Width * Height));
 	}
 
 	void ClearRenderTarget()
 	{
-		pixelColors.clear();
-		pixelColors.resize(static_cast<size_t>(width * height));
+		PixelColors.clear();
+		PixelColors.resize(static_cast<size_t>(Width * Height));
 	}
 };
 
 struct Vertex
 {
-	DirectX::XMFLOAT4 position;
-	DirectX::XMFLOAT4 color;
-	DirectX::XMFLOAT2 uv;
-	DirectX::XMFLOAT3 normals;
-	DirectX::XMFLOAT3 tangents;
+	DirectX::XMFLOAT4 Position;
+	DirectX::XMFLOAT4 Color;
+	DirectX::XMFLOAT2 UV;
+	DirectX::XMFLOAT3 Normals;
+	DirectX::XMFLOAT3 Tangents;
 
 	Vertex() = default;
 	Vertex(DirectX::XMFLOAT4 aPosition, DirectX::XMFLOAT4 aColor, DirectX::XMFLOAT2 aUV, DirectX::XMFLOAT3 aNormals, DirectX::XMFLOAT3 aTangents) :
-		position(aPosition),
-		color(aColor),
-		uv(aUV),
-		normals(aNormals),
-		tangents(aTangents)
+		Position(aPosition),
+		Color(aColor),
+		UV(aUV),
+		Normals(aNormals),
+		Tangents(aTangents)
 	{
 	}
 };
 
 struct TrianglePrimitive
 {
-	Vertex vertices[3] = {};
+	Vertex Vertices[3] = {};
+};
+
+struct ShaderBuffer
+{
+	DirectX::XMMATRIX ObjectToWorld;
+	DirectX::XMMATRIX WorldToViewSpace;
+	DirectX::XMMATRIX ViewToProjectionSpace;
 };
 
 struct PixelShaderInput
 {
-	unsigned renderTargetIndex;
-	DirectX::XMFLOAT2 position;
-	DirectX::XMFLOAT4 color;
-	DirectX::XMFLOAT2 uv;
-	DirectX::XMFLOAT3 normals;
-	DirectX::XMFLOAT3 tangents;
+	unsigned RenderTargetIndex;
+	DirectX::XMFLOAT2 Position;
+	DirectX::XMFLOAT4 Color;
+	DirectX::XMFLOAT2 UV;
+	DirectX::XMFLOAT3 Normals;
+	DirectX::XMFLOAT3 Tangents;
 };
 
 struct Model
 {
-	std::vector<Vertex> vertexList;
-	std::vector<unsigned> indexList;
+	std::vector<Vertex> VertexList;
+	std::vector<unsigned> IndexList;
 };
 
 struct Object
 {
-	Model model;
-	DirectX::XMMATRIX worldTransform = DirectX::XMMatrixIdentity();
+	Model Model;
+	DirectX::XMMATRIX WorldTransform = DirectX::XMMatrixIdentity();
 };
 
 struct Camera
 {
-	unsigned height;
-	unsigned width;
-	DirectX::XMMATRIX worldTransform = DirectX::XMMatrixIdentity();
-	DirectX::XMMATRIX projectionMatrix = DirectX::XMMatrixIdentity();
+	unsigned Height;
+	unsigned Width;
+	DirectX::XMMATRIX WorldTransform = DirectX::XMMatrixIdentity();
+	DirectX::XMMATRIX ProjectionMatrix = DirectX::XMMatrixIdentity();
 };
