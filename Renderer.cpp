@@ -3,6 +3,8 @@
 
 void Renderer::RenderObject(RenderTarget& aRenderTarget, const Model& aModel, const ShaderBuffer& aShaderBuffer)
 {
+	LogTime(__func__);
+
 	for (unsigned index = 0; index < static_cast<unsigned>(aModel.IndexList.size()); index += 3)
 	{
 		TrianglePrimitive prim;
@@ -15,6 +17,8 @@ void Renderer::RenderObject(RenderTarget& aRenderTarget, const Model& aModel, co
 
 void Renderer::DrawTriangle(RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, const ShaderBuffer& aShaderBuffer)
 {
+	LogTime(__func__);
+
 	TrianglePrimitive prim;
 	prim.Vertices[0] = VertexShader(aTriangle.Vertices[0], aShaderBuffer);
 	prim.Vertices[1] = VertexShader(aTriangle.Vertices[1], aShaderBuffer);
@@ -23,6 +27,10 @@ void Renderer::DrawTriangle(RenderTarget& aRenderTarget, const TrianglePrimitive
 	std::vector<PixelShaderInput> pixelList;
 	RasterizeTriangle(aRenderTarget, prim, pixelList);
 
+	if (pixelList.empty())
+		return;
+
+	LogTime("Pixel Shader Loop");
 	for (auto& pixel : pixelList)
 	{
 		PixelShader(aRenderTarget, pixel);
@@ -31,6 +39,8 @@ void Renderer::DrawTriangle(RenderTarget& aRenderTarget, const TrianglePrimitive
 
 Vertex Renderer::VertexShader(const Vertex& aVertex, const ShaderBuffer& aShaderBuffer)
 {
+	LogTime(__func__);
+
 	DirectX::XMVECTOR vertexWorldPos = DirectX::XMVector4Transform(DirectX::XMLoadFloat4(&aVertex.Position), aShaderBuffer.ObjectToWorld);
 	DirectX::XMVECTOR vertexViewPos = DirectX::XMVector4Transform(vertexWorldPos, DirectX::XMMatrixInverse(nullptr, aShaderBuffer.WorldToViewSpace));
 	DirectX::XMVECTOR vertexClipPos = DirectX::XMVector4Transform(vertexViewPos, aShaderBuffer.ViewToProjectionSpace);
@@ -50,6 +60,8 @@ Vertex Renderer::VertexShader(const Vertex& aVertex, const ShaderBuffer& aShader
 
 void Renderer::RasterizeTriangle(const RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList)
 {
+	LogTime(__func__);
+
 	DirectX::XMFLOAT2 vertexScreenPos[3] = {};
 
 	for (size_t i = 0; i < 3; i++)
@@ -70,22 +82,24 @@ void Renderer::RasterizeTriangle(const RenderTarget& aRenderTarget, const Triang
 	float minY = std::min(std::min(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
 	float maxY = std::max(std::max(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
 
-	int32_t boundsStartXPixel = std::clamp(static_cast<unsigned>(std::floor(minX)), unsigned(0), aRenderTarget.Width - 1);
-	int32_t boundsEndXPixel = std::clamp(static_cast<unsigned>(std::ceil(maxX)), unsigned(0), aRenderTarget.Width - 1);
-	int32_t boundsStartYPixel = std::clamp(static_cast<unsigned>(std::floor(minY)), unsigned(0), aRenderTarget.Height - 1);
-	int32_t boundsEndYPixel = std::clamp(static_cast<unsigned>(std::ceil(maxY)), unsigned(0), aRenderTarget.Height - 1);
+	unsigned boundsStartXPixel = std::clamp(static_cast<unsigned>(std::floor(minX)), unsigned(0), aRenderTarget.Width - 1);
+	unsigned boundsEndXPixel = std::clamp(static_cast<unsigned>(std::ceil(maxX)), unsigned(0), aRenderTarget.Width - 1);
+	unsigned boundsStartYPixel = std::clamp(static_cast<unsigned>(std::floor(minY)), unsigned(0), aRenderTarget.Height - 1);
+	unsigned boundsEndYPixel = std::clamp(static_cast<unsigned>(std::ceil(maxY)), unsigned(0), aRenderTarget.Height - 1);
 
-	for (unsigned i = 0; i < aRenderTarget.GetSize(); i++)
+	LogTime("Checking pixels inside triangle");
+	for (unsigned y = boundsStartYPixel; y < boundsEndYPixel; y++)
 	{
-		DirectX::XMINT2 pixelCoords = aRenderTarget.GetPixelCoordinates(i);
-		bool insideXBounds = pixelCoords.x > boundsStartXPixel && pixelCoords.x < boundsEndXPixel;
-		bool insideYBounds = pixelCoords.y > boundsStartYPixel && pixelCoords.y < boundsEndYPixel;
-		if (insideXBounds && insideYBounds)
+		for (unsigned x = boundsStartXPixel; x < boundsEndXPixel; x++)
 		{
-			DirectX::XMFLOAT2 pixelPosition = { static_cast<float>(pixelCoords.x), static_cast<float>(pixelCoords.y) };
-			if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition))
+			unsigned currentPixelIndex = x + aRenderTarget.Width * y;
+			if (currentPixelIndex > aRenderTarget.GetSize())
+				break;
+
+			DirectX::XMFLOAT2 pixelPosition = { static_cast<float>(x), static_cast<float>(y) };
+			DirectX::XMFLOAT3 weights = {};
+			if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition, weights))
 			{
-				DirectX::XMFLOAT3 weights = CalculateBarycentricCoordinates(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition);
 				weights.x *= 1.0f / aTriangle.Vertices[0].Position.w;
 				weights.y *= 1.0f / aTriangle.Vertices[1].Position.w;
 				weights.z *= 1.0f / aTriangle.Vertices[2].Position.w;
@@ -97,28 +111,35 @@ void Renderer::RasterizeTriangle(const RenderTarget& aRenderTarget, const Triang
 
 				assert(weights.x >= 0.0f && weights.x <= 1.0f && weights.y >= 0.0f && weights.y <= 1.0f && weights.z >= 0.0f && weights.z <= 1.0f);
 
-				PixelShaderInput& pixel = outPixelList.emplace_back();
-				pixel.RenderTargetIndex = i;
-				pixel.Position = pixelPosition;
-				pixel.Color.x = aTriangle.Vertices[0].Color.x * weights.x + aTriangle.Vertices[1].Color.x * weights.y + aTriangle.Vertices[2].Color.x * weights.z;
-				pixel.Color.y = aTriangle.Vertices[0].Color.y * weights.x + aTriangle.Vertices[1].Color.y * weights.y + aTriangle.Vertices[2].Color.y * weights.z;
-				pixel.Color.z = aTriangle.Vertices[0].Color.z * weights.x + aTriangle.Vertices[1].Color.z * weights.y + aTriangle.Vertices[2].Color.z * weights.z;
-
-				pixel.Normals.x = aTriangle.Vertices[0].Normals.x * weights.x + aTriangle.Vertices[1].Normals.x * weights.y + aTriangle.Vertices[2].Normals.x * weights.z;
-				pixel.Normals.y = aTriangle.Vertices[0].Normals.y * weights.x + aTriangle.Vertices[1].Normals.y * weights.y + aTriangle.Vertices[2].Normals.y * weights.z;
-				pixel.Normals.z = aTriangle.Vertices[0].Normals.z * weights.x + aTriangle.Vertices[1].Normals.z * weights.y + aTriangle.Vertices[2].Normals.z * weights.z;
-
-				pixel.Tangents.x = aTriangle.Vertices[0].Tangents.x * weights.x + aTriangle.Vertices[1].Tangents.x * weights.y + aTriangle.Vertices[2].Tangents.x * weights.z;
-				pixel.Tangents.y = aTriangle.Vertices[0].Tangents.y * weights.x + aTriangle.Vertices[1].Tangents.y * weights.y + aTriangle.Vertices[2].Tangents.y * weights.z;
-				pixel.Tangents.z = aTriangle.Vertices[0].Tangents.z * weights.x + aTriangle.Vertices[1].Tangents.z * weights.y + aTriangle.Vertices[2].Tangents.z * weights.z;
-
-				pixel.UV.x = aTriangle.Vertices[0].UV.x * weights.x + aTriangle.Vertices[1].UV.x * weights.y + aTriangle.Vertices[2].UV.x * weights.z;
-				pixel.UV.y = aTriangle.Vertices[0].UV.y * weights.x + aTriangle.Vertices[1].UV.y * weights.y + aTriangle.Vertices[2].UV.y * weights.z;
-
-				// Interpolate all vertex values
+				outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
 			}
 		}
 	}
+}
+
+PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTriangle, unsigned aRenderTargetIndex, DirectX::XMFLOAT2 aPixelPosition, DirectX::XMFLOAT3 aWeights)
+{
+	PixelShaderInput pixel = {};
+	pixel.RenderTargetIndex = aRenderTargetIndex;
+	pixel.Position = aPixelPosition;
+	pixel.Color.x = aTriangle.Vertices[0].Color.x * aWeights.x + aTriangle.Vertices[1].Color.x * aWeights.y + aTriangle.Vertices[2].Color.x * aWeights.z;
+	pixel.Color.y = aTriangle.Vertices[0].Color.y * aWeights.x + aTriangle.Vertices[1].Color.y * aWeights.y + aTriangle.Vertices[2].Color.y * aWeights.z;
+	pixel.Color.z = aTriangle.Vertices[0].Color.z * aWeights.x + aTriangle.Vertices[1].Color.z * aWeights.y + aTriangle.Vertices[2].Color.z * aWeights.z;
+
+	pixel.Normals.x = aTriangle.Vertices[0].Normals.x * aWeights.x + aTriangle.Vertices[1].Normals.x * aWeights.y + aTriangle.Vertices[2].Normals.x * aWeights.z;
+	pixel.Normals.y = aTriangle.Vertices[0].Normals.y * aWeights.x + aTriangle.Vertices[1].Normals.y * aWeights.y + aTriangle.Vertices[2].Normals.y * aWeights.z;
+	pixel.Normals.z = aTriangle.Vertices[0].Normals.z * aWeights.x + aTriangle.Vertices[1].Normals.z * aWeights.y + aTriangle.Vertices[2].Normals.z * aWeights.z;
+
+	pixel.Tangents.x = aTriangle.Vertices[0].Tangents.x * aWeights.x + aTriangle.Vertices[1].Tangents.x * aWeights.y + aTriangle.Vertices[2].Tangents.x * aWeights.z;
+	pixel.Tangents.y = aTriangle.Vertices[0].Tangents.y * aWeights.x + aTriangle.Vertices[1].Tangents.y * aWeights.y + aTriangle.Vertices[2].Tangents.y * aWeights.z;
+	pixel.Tangents.z = aTriangle.Vertices[0].Tangents.z * aWeights.x + aTriangle.Vertices[1].Tangents.z * aWeights.y + aTriangle.Vertices[2].Tangents.z * aWeights.z;
+
+	pixel.UV.x = aTriangle.Vertices[0].UV.x * aWeights.x + aTriangle.Vertices[1].UV.x * aWeights.y + aTriangle.Vertices[2].UV.x * aWeights.z;
+	pixel.UV.y = aTriangle.Vertices[0].UV.y * aWeights.x + aTriangle.Vertices[1].UV.y * aWeights.y + aTriangle.Vertices[2].UV.y * aWeights.z;
+
+	// Interpolate all vertex values
+
+	return pixel;
 }
 
 void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput)

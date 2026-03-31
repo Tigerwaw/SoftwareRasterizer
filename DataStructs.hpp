@@ -12,7 +12,7 @@ struct RenderTarget
 	unsigned Height;
 	std::vector<DirectX::XMFLOAT3> PixelColors;
 
-	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x * Width + aPixelCoordinate.y; }
+	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x + Width * aPixelCoordinate.y; }
 
 	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % Width), static_cast<int32_t>(std::floor(i / Width)) }; }
 	unsigned GetSize() const { return Width * Height; }

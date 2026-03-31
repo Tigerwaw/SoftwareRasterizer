@@ -1,6 +1,7 @@
 #pragma once
 #include "Inc/DirectXMath.h"
 #include "DataStructs.hpp"
+#include <chrono>
 
 static float LerpValue(float aA, float aB, float aT)
 {
@@ -34,44 +35,29 @@ static DirectX::XMFLOAT3 Normalize(DirectX::XMFLOAT3 aVector)
 	return aVector;
 }
 
-static DirectX::XMFLOAT2 GetPerpendicular(DirectX::XMFLOAT2 aVector)
+static float Edge(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aC)
 {
-	return { aVector.y, -aVector.x };
+	return (aC.x - aA.x) * (aB.y - aA.y) - (aC.y - aA.y) * (aB.x - aA.x);
 }
 
-static bool IsPointOnRightSideOfLine(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aP)
+static bool IsPointInsideTriangle(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aC, DirectX::XMFLOAT2 aP, DirectX::XMFLOAT3& outWeights)
 {
-	DirectX::XMFLOAT2 apDiff = { aP.x - aA.x, aP.y - aA.y };
-	DirectX::XMFLOAT2 apPerpendicular = GetPerpendicular({ aB.x - aA.x, aB.y - aA.y });
-	return Dot(apDiff, apPerpendicular) >= 0.0f;
-}
+	float area = Edge(aA, aB, aC);
 
-static bool IsPointInsideTriangle(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aC, DirectX::XMFLOAT2 aP)
-{
-	bool sideAB = IsPointOnRightSideOfLine(aA, aB, aP);
-	bool sideBC = IsPointOnRightSideOfLine(aB, aC, aP);
-	bool sideCA = IsPointOnRightSideOfLine(aC, aA, aP);
-	return sideAB && sideBC && sideCA;
-}
+	if (area <= 0.0f)
+		return false;
 
-static DirectX::XMFLOAT3 CalculateBarycentricCoordinates(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aC, DirectX::XMFLOAT2 aP)
-{
-	DirectX::XMFLOAT2 v0 = { aB.x - aA.x, aB.y - aA.y };
-	DirectX::XMFLOAT2 v1 = { aC.x - aA.x, aC.y - aA.y };
-	DirectX::XMFLOAT2 v2 = { aP.x - aA.x, aP.y - aA.y };
+	float w0 = Edge(aB, aC, aP);
+	float w1 = Edge(aC, aA, aP);
+	float w2 = Edge(aA, aB, aP);
 
-	float d00 = Dot(v0, v0);
-	float d01 = Dot(v0, v1);
-	float d11 = Dot(v1, v1);
-	float d20 = Dot(v2, v0);
-	float d21 = Dot(v2, v1);
+	if (w0 < 0 || w1 < 0 || w2 < 0)
+		return false;
 
-	float denom = d00 * d11 - d01 * d01;
-	float c = (d00 * d21 - d01 * d20) / denom;
-	float b = (d11 * d20 - d01 * d21) / denom;
-	float a = 1.0f - b - c;
+	float invArea = 1.0f / area;
+	outWeights = { w0 * invArea, w1 * invArea, w2 * invArea };
 
-	return { a, b, c };
+	return true;
 }
 
 static void CreateCubeModel(Model& aModel)
@@ -317,4 +303,12 @@ static void WriteDataToBMPFile(const RenderTarget& aRenderTarget, const std::fil
 	}
 
 	file.close();
+}
+
+static std::chrono::time_point<std::chrono::system_clock> gTimepoint = std::chrono::system_clock::now();
+
+static void LogTime(const char* aLogString)
+{
+	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - gTimepoint);
+	std::cout << ms << " : " << aLogString << std::endl;
 }

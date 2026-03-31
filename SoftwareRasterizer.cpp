@@ -24,7 +24,7 @@ static void RenderStillObject(Renderer& aRenderer, RenderTarget& aRenderTarget, 
 static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
 {
 	float objectYaw = 0.0f;
-	for (int i = 0; i < 20; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		objectYaw += 6.0f;
 
