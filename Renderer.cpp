@@ -1,7 +1,7 @@
 #include "Renderer.h"
 #include "Utilities.hpp"
 
-void Renderer::RenderObject(RenderTarget& aRenderTarget, const Model& aModel, const ShaderBuffer& aShaderBuffer)
+void Renderer::RenderObject(RenderTarget& aRenderTarget, const Model& aModel, const Material& aMaterial, const ShaderBuffer& aShaderBuffer)
 {
 	LogTime(__func__);
 
@@ -11,11 +11,11 @@ void Renderer::RenderObject(RenderTarget& aRenderTarget, const Model& aModel, co
 		prim.Vertices[0] = aModel.VertexList[aModel.IndexList[index + 0]];
 		prim.Vertices[1] = aModel.VertexList[aModel.IndexList[index + 1]];
 		prim.Vertices[2] = aModel.VertexList[aModel.IndexList[index + 2]];
-		DrawTriangle(aRenderTarget, prim, aShaderBuffer);
+		DrawTriangle(aRenderTarget, prim, aMaterial, aShaderBuffer);
 	}
 }
 
-void Renderer::DrawTriangle(RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, const ShaderBuffer& aShaderBuffer)
+void Renderer::DrawTriangle(RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, const Material& aMaterial, const ShaderBuffer& aShaderBuffer)
 {
 	LogTime(__func__);
 
@@ -33,7 +33,7 @@ void Renderer::DrawTriangle(RenderTarget& aRenderTarget, const TrianglePrimitive
 	LogTime("Pixel Shader Loop");
 	for (auto& pixel : pixelList)
 	{
-		PixelShader(aRenderTarget, pixel);
+		PixelShader(aRenderTarget, pixel, aMaterial);
 	}
 }
 
@@ -142,7 +142,7 @@ PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTria
 	return pixel;
 }
 
-void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput)
+void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput, const Material& aMaterial)
 {
 	const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(0.5f, 1.0f, -0.5f));
 	const DirectX::XMFLOAT3 specColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
@@ -173,6 +173,8 @@ void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& 
 	color.x = aPixelInput.Color.x + spec.x;
 	color.y = aPixelInput.Color.y + spec.y;
 	color.z = aPixelInput.Color.z + spec.z;
+
+	//DirectX::XMFLOAT3 color = aMaterial.DiffuseTexture.Sample(aPixelInput.UV);
 
 	aRenderTarget.PixelColors[aPixelInput.RenderTargetIndex] = color;
 }

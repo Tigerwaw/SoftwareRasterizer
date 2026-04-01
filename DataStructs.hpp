@@ -31,6 +31,37 @@ struct RenderTarget
 	}
 };
 
+struct Texture
+{
+	unsigned Width;
+	unsigned Height;
+	std::vector<DirectX::XMFLOAT3> TextureData;
+
+	DirectX::XMFLOAT3 Sample(DirectX::XMFLOAT2 aUVCoordinates) const
+	{
+		unsigned x = static_cast<unsigned>(aUVCoordinates.x * Width);
+		unsigned y = static_cast<unsigned>(aUVCoordinates.y * Height);
+		x = x % Width;
+		y = y % Height;
+
+		unsigned pixelIndex = x + Width * y;
+
+		assert(pixelIndex >= 0 && pixelIndex < TextureData.size());
+
+		DirectX::XMFLOAT3 sampledColor = TextureData[pixelIndex];
+		sampledColor.x /= 255.0f;
+		sampledColor.y /= 255.0f;
+		sampledColor.z /= 255.0f;
+
+		return sampledColor;
+	}
+};
+
+struct Material
+{
+	Texture DiffuseTexture;
+};
+
 struct Vertex
 {
 	DirectX::XMFLOAT4 Position;
@@ -81,6 +112,7 @@ struct Model
 struct Object
 {
 	Model Model;
+	Material Material;
 	DirectX::XMMATRIX WorldTransform = DirectX::XMMatrixIdentity();
 };
 

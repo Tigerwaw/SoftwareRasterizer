@@ -2,6 +2,8 @@
 #include "Inc/DirectXMath.h"
 #include "DataStructs.hpp"
 #include <chrono>
+#include <iostream>
+#include <fstream>
 
 static float LerpValue(float aA, float aB, float aT)
 {
@@ -240,7 +242,41 @@ static void CreateCubeModel(Model& aModel)
 	//}
 }
 
-static void WriteDataToBMPFile(const RenderTarget& aRenderTarget, const std::filesystem::path& aFilePath)
+static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTexture)
+{
+	std::ifstream file(aFilePath);
+	if (file) 
+	{
+		file.seekg(0, std::ios::end);
+		std::streampos length = file.tellg();
+		file.seekg(0, std::ios::beg);
+
+		std::vector<char> buffer;
+		buffer.resize(length);
+		file.read(&buffer[0], length);
+		file.close();
+
+		unsigned fileSize = 0;
+		unsigned dataOffset = 0;
+		unsigned width = 0;
+		unsigned height = 0;
+		short bitsPerPixel = 0;
+		unsigned compression = 0;
+		memcpy(&fileSize, &buffer[2], 4);
+		memcpy(&dataOffset, &buffer[10], 4);
+		memcpy(&width, &buffer[18], 4);
+		memcpy(&height, &buffer[22], 4);
+		memcpy(&bitsPerPixel, &buffer[28], 2);
+		memcpy(&compression, &buffer[30], 4);
+
+		aTexture.Width = width;
+		aTexture.Height = height;
+		aTexture.TextureData.resize(static_cast<size_t>(width * height));
+		memcpy(aTexture.TextureData.data(), &buffer[dataOffset], static_cast<size_t>(fileSize - dataOffset));
+	}
+}
+
+static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const RenderTarget& aRenderTarget)
 {
 	const unsigned headerSize = 14;
 	const unsigned infoHeaderSize = 40;

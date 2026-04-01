@@ -17,14 +17,14 @@ static void RenderStillObject(Renderer& aRenderer, RenderTarget& aRenderTarget, 
 	shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
 	shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
 	
-	aRenderer.RenderObject(aRenderTarget, aObject.Model, shaderBuffer);
-	WriteDataToBMPFile(aRenderTarget, std::filesystem::path("render.bmp"));
+	aRenderer.RenderObject(aRenderTarget, aObject.Model, aObject.Material, shaderBuffer);
+	WriteDataToBMPFile(std::filesystem::path("render.bmp"), aRenderTarget);
 }
 
 static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
 {
 	float objectYaw = 0.0f;
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < 30; i++)
 	{
 		objectYaw += 6.0f;
 
@@ -40,9 +40,9 @@ static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget,
 		shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
 		shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
 
-		aRenderer.RenderObject(aRenderTarget, aObject.Model, shaderBuffer);
+		aRenderer.RenderObject(aRenderTarget, aObject.Model, aObject.Material, shaderBuffer);
 		std::filesystem::path path("frame_" + std::to_string(i) + ".bmp");
-		WriteDataToBMPFile(aRenderTarget, path);
+		WriteDataToBMPFile(path, aRenderTarget);
 		aRenderTarget.ClearRenderTarget();
 	}
 }
