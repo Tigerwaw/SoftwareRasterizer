@@ -69,6 +69,8 @@ int main()
 	);
 
 	Object object;
+	LoadBMPFile("TestTexture.bmp", object.Material.DiffuseTexture);
+
 	object.WorldTransform = DirectX::XMMatrixAffineTransformation(
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 0.0f, 0.0f, 0.0f, 1.0f },

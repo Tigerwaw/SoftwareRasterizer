@@ -10,7 +10,7 @@ struct RenderTarget
 {
 	unsigned Width;
 	unsigned Height;
-	std::vector<DirectX::XMFLOAT3> PixelColors;
+	std::vector<DirectX::XMFLOAT4> PixelColors;
 
 	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x + Width * aPixelCoordinate.y; }
 
@@ -35,9 +35,9 @@ struct Texture
 {
 	unsigned Width;
 	unsigned Height;
-	std::vector<DirectX::XMFLOAT3> TextureData;
+	std::vector<DirectX::XMFLOAT4> TextureData;
 
-	DirectX::XMFLOAT3 Sample(DirectX::XMFLOAT2 aUVCoordinates) const
+	DirectX::XMFLOAT4 Sample(DirectX::XMFLOAT2 aUVCoordinates) const
 	{
 		unsigned x = static_cast<unsigned>(aUVCoordinates.x * Width);
 		unsigned y = static_cast<unsigned>(aUVCoordinates.y * Height);
@@ -48,12 +48,7 @@ struct Texture
 
 		assert(pixelIndex >= 0 && pixelIndex < TextureData.size());
 
-		DirectX::XMFLOAT3 sampledColor = TextureData[pixelIndex];
-		sampledColor.x /= 255.0f;
-		sampledColor.y /= 255.0f;
-		sampledColor.z /= 255.0f;
-
-		return sampledColor;
+		return TextureData[pixelIndex];
 	}
 };
 

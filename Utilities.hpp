@@ -244,7 +244,7 @@ static void CreateCubeModel(Model& aModel)
 
 static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTexture)
 {
-	std::ifstream file(aFilePath);
+	std::ifstream file(aFilePath, std::ios::binary);
 	if (file) 
 	{
 		file.seekg(0, std::ios::end);
@@ -255,6 +255,10 @@ static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTextur
 		buffer.resize(length);
 		file.read(&buffer[0], length);
 		file.close();
+
+		bool isBMPFile = buffer[0] == 'B' && buffer[1] == 'M';
+		if (!isBMPFile)
+			return;
 
 		unsigned fileSize = 0;
 		unsigned dataOffset = 0;
@@ -272,7 +276,30 @@ static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTextur
 		aTexture.Width = width;
 		aTexture.Height = height;
 		aTexture.TextureData.resize(static_cast<size_t>(width * height));
-		memcpy(aTexture.TextureData.data(), &buffer[dataOffset], static_cast<size_t>(fileSize - dataOffset));
+
+		int bytesPerPixel = bitsPerPixel / 8;
+		int rowStride = ((width * bytesPerPixel + 3) / 4) * 4;
+
+		aTexture.TextureData.resize(width * height);
+
+		for (unsigned y = 0; y < height; ++y)
+		{
+			unsigned srcY = height - 1 - y;
+
+			const unsigned char* row = reinterpret_cast<const unsigned char*>(buffer.data() + dataOffset + srcY * rowStride);
+
+			for (unsigned x = 0; x < width; ++x)
+			{
+				const unsigned char* pixel = row + x * bytesPerPixel;
+
+				float b = pixel[0] / 255.0f;
+				float g = pixel[1] / 255.0f;
+				float r = pixel[2] / 255.0f;
+				float a = (bytesPerPixel == 4) ? pixel[3] / 255.0f : 1.0f;
+
+				aTexture.TextureData[y * width + x] = { r, g, b, a };
+			}
+		}
 	}
 }
 
@@ -333,7 +360,7 @@ static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Ren
 		colors[0] = static_cast<char>(pixelColor.z * 255);
 		colors[1] = static_cast<char>(pixelColor.y * 255);
 		colors[2] = static_cast<char>(pixelColor.x * 255);
-		colors[3] = static_cast<char>(0);
+		colors[3] = static_cast<char>(pixelColor.w * 255);
 
 		file.write(colors, sizeof(colors));
 	}

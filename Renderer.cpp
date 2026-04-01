@@ -144,37 +144,38 @@ PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTria
 
 void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput, const Material& aMaterial)
 {
-	const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(0.5f, 1.0f, -0.5f));
-	const DirectX::XMFLOAT3 specColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
+	//const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(0.5f, 1.0f, -0.5f));
+	//const DirectX::XMFLOAT3 specColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
 
-	DirectX::XMFLOAT3 cameraDir = { 0.0f, 0.0f, 1.0f };
-	cameraDir = Normalize(cameraDir);
-	DirectX::XMFLOAT3 halfDir = lightDir;
-	halfDir.x += cameraDir.x;
-	halfDir.y += cameraDir.y;
-	halfDir.z += cameraDir.z;
-	halfDir = Normalize(halfDir);
+	//DirectX::XMFLOAT3 cameraDir = { 0.0f, 0.0f, 1.0f };
+	//cameraDir = Normalize(cameraDir);
+	//DirectX::XMFLOAT3 halfDir = lightDir;
+	//halfDir.x += cameraDir.x;
+	//halfDir.y += cameraDir.y;
+	//halfDir.z += cameraDir.z;
+	//halfDir = Normalize(halfDir);
 
-	DirectX::XMFLOAT3 adjustedNormals = aPixelInput.Normals;
-	adjustedNormals.x = (adjustedNormals.x + 1.0f) * 0.5f;
-	adjustedNormals.y = (adjustedNormals.y + 1.0f) * 0.5f;
-	adjustedNormals.z = (adjustedNormals.z + 1.0f) * 0.5f;
-	adjustedNormals = Normalize(adjustedNormals);
+	//DirectX::XMFLOAT3 adjustedNormals = aPixelInput.Normals;
+	//adjustedNormals.x = (adjustedNormals.x + 1.0f) * 0.5f;
+	//adjustedNormals.y = (adjustedNormals.y + 1.0f) * 0.5f;
+	//adjustedNormals.z = (adjustedNormals.z + 1.0f) * 0.5f;
+	//adjustedNormals = Normalize(adjustedNormals);
 
-	float specAngle = std::fmax(Dot(adjustedNormals, halfDir), 0.0f);
-	float specularIntensity = pow(specAngle, 8.0f);
+	//float specAngle = std::fmax(Dot(adjustedNormals, halfDir), 0.0f);
+	//float specularIntensity = pow(specAngle, 8.0f);
 
-	DirectX::XMFLOAT3 spec = {};
-	spec.x = specColor.x * specularIntensity;
-	spec.y = specColor.y * specularIntensity;
-	spec.z = specColor.z * specularIntensity;
+	//DirectX::XMFLOAT3 spec = {};
+	//spec.x = specColor.x * specularIntensity;
+	//spec.y = specColor.y * specularIntensity;
+	//spec.z = specColor.z * specularIntensity;
 
-	DirectX::XMFLOAT3 color = {};
-	color.x = aPixelInput.Color.x + spec.x;
-	color.y = aPixelInput.Color.y + spec.y;
-	color.z = aPixelInput.Color.z + spec.z;
+	//DirectX::XMFLOAT4 color = {};
+	//color.x = aPixelInput.Color.x + spec.x;
+	//color.y = aPixelInput.Color.y + spec.y;
+	//color.z = aPixelInput.Color.z + spec.z;
+	//color.w = 1.0f;
 
-	//DirectX::XMFLOAT3 color = aMaterial.DiffuseTexture.Sample(aPixelInput.UV);
+	DirectX::XMFLOAT4 color = aMaterial.DiffuseTexture.Sample(aPixelInput.UV);
 
 	aRenderTarget.PixelColors[aPixelInput.RenderTargetIndex] = color;
 }
