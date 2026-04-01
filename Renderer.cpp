@@ -45,15 +45,29 @@ Vertex Renderer::VertexShader(const Vertex& aVertex, const ShaderBuffer& aShader
 	DirectX::XMVECTOR vertexViewPos = DirectX::XMVector4Transform(vertexWorldPos, DirectX::XMMatrixInverse(nullptr, aShaderBuffer.WorldToViewSpace));
 	DirectX::XMVECTOR vertexClipPos = DirectX::XMVector4Transform(vertexViewPos, aShaderBuffer.ViewToProjectionSpace);
 
+	Vertex newVertex = aVertex;
+	DirectX::XMStoreFloat4(&newVertex.Position, vertexClipPos);
+
 	DirectX::XMVECTOR worldNormals = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.Normals.x, aVertex.Normals.y, aVertex.Normals.z, 0.0f), aShaderBuffer.ObjectToWorld);
 	DirectX::XMFLOAT4 worldNormalsFloat = {};
 	DirectX::XMStoreFloat4(&worldNormalsFloat, worldNormals);
-
-	Vertex newVertex = aVertex;
-	DirectX::XMStoreFloat4(&newVertex.Position, vertexClipPos);
 	newVertex.Normals.x = worldNormalsFloat.x;
 	newVertex.Normals.y = worldNormalsFloat.y;
 	newVertex.Normals.z = worldNormalsFloat.z;
+
+	DirectX::XMVECTOR worldTangents = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.Tangents.x, aVertex.Tangents.y, aVertex.Tangents.z, 0.0f), aShaderBuffer.ObjectToWorld);
+	DirectX::XMFLOAT4 worldTangentsFloat = {};
+	DirectX::XMStoreFloat4(&worldTangentsFloat, worldTangents);
+	newVertex.Normals.x = worldTangentsFloat.x;
+	newVertex.Normals.y = worldTangentsFloat.y;
+	newVertex.Normals.z = worldTangentsFloat.z;
+
+	DirectX::XMVECTOR worldBinormals = DirectX::XMVector3Cross(worldNormals, worldTangents);
+	DirectX::XMFLOAT4 worldBinormalsFloat = {};
+	DirectX::XMStoreFloat4(&worldBinormalsFloat, worldBinormals);
+	newVertex.Binormals.x = worldBinormalsFloat.x;
+	newVertex.Binormals.y = worldBinormalsFloat.y;
+	newVertex.Binormals.z = worldBinormalsFloat.z;
 
 	return newVertex;
 }
@@ -134,6 +148,10 @@ PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTria
 	pixel.Tangents.y = aTriangle.Vertices[0].Tangents.y * aWeights.x + aTriangle.Vertices[1].Tangents.y * aWeights.y + aTriangle.Vertices[2].Tangents.y * aWeights.z;
 	pixel.Tangents.z = aTriangle.Vertices[0].Tangents.z * aWeights.x + aTriangle.Vertices[1].Tangents.z * aWeights.y + aTriangle.Vertices[2].Tangents.z * aWeights.z;
 
+	pixel.Binormals.x = aTriangle.Vertices[0].Binormals.x * aWeights.x + aTriangle.Vertices[1].Binormals.x * aWeights.y + aTriangle.Vertices[2].Binormals.x * aWeights.z;
+	pixel.Binormals.y = aTriangle.Vertices[0].Binormals.y * aWeights.x + aTriangle.Vertices[1].Binormals.y * aWeights.y + aTriangle.Vertices[2].Binormals.y * aWeights.z;
+	pixel.Binormals.z = aTriangle.Vertices[0].Binormals.z * aWeights.x + aTriangle.Vertices[1].Binormals.z * aWeights.y + aTriangle.Vertices[2].Binormals.z * aWeights.z;
+
 	pixel.UV.x = aTriangle.Vertices[0].UV.x * aWeights.x + aTriangle.Vertices[1].UV.x * aWeights.y + aTriangle.Vertices[2].UV.x * aWeights.z;
 	pixel.UV.y = aTriangle.Vertices[0].UV.y * aWeights.x + aTriangle.Vertices[1].UV.y * aWeights.y + aTriangle.Vertices[2].UV.y * aWeights.z;
 
@@ -144,38 +162,56 @@ PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTria
 
 void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput, const Material& aMaterial)
 {
-	//const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(0.5f, 1.0f, -0.5f));
-	//const DirectX::XMFLOAT3 specColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
+	const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(0.5f, -1.0f, 0.5f));
+	const DirectX::XMFLOAT3 specColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
 
-	//DirectX::XMFLOAT3 cameraDir = { 0.0f, 0.0f, 1.0f };
-	//cameraDir = Normalize(cameraDir);
-	//DirectX::XMFLOAT3 halfDir = lightDir;
-	//halfDir.x += cameraDir.x;
-	//halfDir.y += cameraDir.y;
-	//halfDir.z += cameraDir.z;
-	//halfDir = Normalize(halfDir);
+	DirectX::XMFLOAT3 cameraDir = { 0.0f, 0.0f, 1.0f };
+	cameraDir = Normalize(cameraDir);
+	DirectX::XMFLOAT3 halfDir = lightDir;
+	halfDir.x += cameraDir.x;
+	halfDir.y += cameraDir.y;
+	halfDir.z += cameraDir.z;
+	halfDir = Normalize(halfDir);
 
-	//DirectX::XMFLOAT3 adjustedNormals = aPixelInput.Normals;
-	//adjustedNormals.x = (adjustedNormals.x + 1.0f) * 0.5f;
-	//adjustedNormals.y = (adjustedNormals.y + 1.0f) * 0.5f;
-	//adjustedNormals.z = (adjustedNormals.z + 1.0f) * 0.5f;
-	//adjustedNormals = Normalize(adjustedNormals);
+	DirectX::XMFLOAT4 normalMap = aMaterial.NormalTexture.Sample(aPixelInput.UV);
+	DirectX::XMFLOAT3 calculatedNormals = {};
+	calculatedNormals.x = (normalMap.x - 0.5f) * 2.0f;
+	calculatedNormals.y = (normalMap.y - 0.5f) * 2.0f;
+	calculatedNormals.z = sqrt(1 - std::clamp((calculatedNormals.x * calculatedNormals.x + calculatedNormals.y * calculatedNormals.y), 0.0f, 1.0f));
+	calculatedNormals = Normalize(calculatedNormals);
 
-	//float specAngle = std::fmax(Dot(adjustedNormals, halfDir), 0.0f);
-	//float specularIntensity = pow(specAngle, 8.0f);
+	DirectX::XMFLOAT3 normalizedTangentsFloat = Normalize(aPixelInput.Tangents);
+	DirectX::XMFLOAT3 normalizedBinormalsFloat = Normalize(aPixelInput.Binormals);
+	DirectX::XMFLOAT3 normalizedNormalsFloat = Normalize(aPixelInput.Normals);
+	DirectX::XMVECTOR normalizedTangents = DirectX::XMVectorSet(normalizedTangentsFloat.x, normalizedTangentsFloat.y, normalizedTangentsFloat.z, 0.0f);
+	DirectX::XMVECTOR normalizedBinormals = DirectX::XMVectorSet(normalizedBinormalsFloat.x, normalizedBinormalsFloat.y, normalizedBinormalsFloat.z, 0.0f);
+	DirectX::XMVECTOR normalizedNormals = DirectX::XMVectorSet(normalizedNormalsFloat.x, normalizedNormalsFloat.y, normalizedNormalsFloat.z, 0.0f);
+	DirectX::XMVECTOR fourthRow = { 0.0f, 0.0f, 0.0f, 0.0f };
+	DirectX::XMMATRIX TBN(normalizedTangents, normalizedBinormals, normalizedNormals, fourthRow);
 
-	//DirectX::XMFLOAT3 spec = {};
-	//spec.x = specColor.x * specularIntensity;
-	//spec.y = specColor.y * specularIntensity;
-	//spec.z = specColor.z * specularIntensity;
+	DirectX::XMVECTOR normals = { calculatedNormals.x, calculatedNormals.y, calculatedNormals.z, 0.0f };
+	normals = DirectX::XMVector3TransformNormal(normals, TBN);
+	DirectX::XMFLOAT4 calculatedNormalsFloat = {};
+	DirectX::XMStoreFloat4(&calculatedNormalsFloat, normals);
+	calculatedNormals.x = calculatedNormalsFloat.x;
+	calculatedNormals.y = calculatedNormalsFloat.y;
+	calculatedNormals.z = calculatedNormalsFloat.z;
+	calculatedNormals = Normalize(calculatedNormals);
 
-	//DirectX::XMFLOAT4 color = {};
-	//color.x = aPixelInput.Color.x + spec.x;
-	//color.y = aPixelInput.Color.y + spec.y;
-	//color.z = aPixelInput.Color.z + spec.z;
-	//color.w = 1.0f;
+	float specAngle = std::fmax(Dot(calculatedNormals, halfDir), 0.0f);
+	float specularIntensity = pow(specAngle, 16.0f);
 
-	DirectX::XMFLOAT4 color = aMaterial.DiffuseTexture.Sample(aPixelInput.UV);
+	DirectX::XMFLOAT3 spec = {};
+	spec.x = specColor.x * specularIntensity;
+	spec.y = specColor.y * specularIntensity;
+	spec.z = specColor.z * specularIntensity;
+
+	DirectX::XMFLOAT4 diffuseMap = aMaterial.DiffuseTexture.Sample(aPixelInput.UV);
+	DirectX::XMFLOAT4 color = {};
+	color.x = std::clamp(diffuseMap.x + spec.x, 0.0f, 1.0f);
+	color.y = std::clamp(diffuseMap.y + spec.y, 0.0f, 1.0f);
+	color.z = std::clamp(diffuseMap.z + spec.z, 0.0f, 1.0f);
+	color.w = 1.0f;
 
 	aRenderTarget.PixelColors[aPixelInput.RenderTargetIndex] = color;
 }

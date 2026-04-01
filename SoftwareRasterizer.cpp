@@ -23,15 +23,15 @@ static void RenderStillObject(Renderer& aRenderer, RenderTarget& aRenderTarget, 
 
 static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
 {
-	float objectYaw = 0.0f;
+	float objectRoll = 0.0f;
 	for (int i = 0; i < 30; i++)
 	{
-		objectYaw += 6.0f;
+		objectRoll += 12.0f;
 
 		aObject.WorldTransform = DirectX::XMMatrixAffineTransformation(
 			{ 1.0f, 1.0f, 1.0f, 1.0f },
 			{ 0.0f, 0.0f, 0.0f, 1.0f },
-			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectYaw)),
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll)),
 			{ 0.0f, 0.0f, 5.0f, 1.0f }
 		);
 
@@ -69,7 +69,8 @@ int main()
 	);
 
 	Object object;
-	LoadBMPFile("TestTexture.bmp", object.Material.DiffuseTexture);
+	LoadBMPFile("sponza_bricks_d.bmp", object.Material.DiffuseTexture);
+	LoadBMPFile("sponza_bricks_n.bmp", object.Material.NormalTexture);
 
 	object.WorldTransform = DirectX::XMMatrixAffineTransformation(
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
@@ -80,6 +81,6 @@ int main()
 	
 	CreateCubeModel(object.Model);
 	
-	RenderStillObject(renderer, renderTarget, camera, object);
-	//RenderRotatingCube(renderer, renderTarget, camera, object);
+	//RenderStillObject(renderer, renderTarget, camera, object);
+	RenderRotatingCube(renderer, renderTarget, camera, object);
 }

@@ -55,6 +55,7 @@ struct Texture
 struct Material
 {
 	Texture DiffuseTexture;
+	Texture NormalTexture;
 };
 
 struct Vertex
@@ -64,6 +65,7 @@ struct Vertex
 	DirectX::XMFLOAT2 UV;
 	DirectX::XMFLOAT3 Normals;
 	DirectX::XMFLOAT3 Tangents;
+	DirectX::XMFLOAT3 Binormals;
 
 	Vertex() = default;
 	Vertex(DirectX::XMFLOAT4 aPosition, DirectX::XMFLOAT4 aColor, DirectX::XMFLOAT2 aUV, DirectX::XMFLOAT3 aNormals, DirectX::XMFLOAT3 aTangents) :
@@ -96,6 +98,7 @@ struct PixelShaderInput
 	DirectX::XMFLOAT2 UV;
 	DirectX::XMFLOAT3 Normals;
 	DirectX::XMFLOAT3 Tangents;
+	DirectX::XMFLOAT3 Binormals;
 };
 
 struct Model
