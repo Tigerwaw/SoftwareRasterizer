@@ -91,19 +91,19 @@ Vertex Renderer::VertexShader(const Vertex& aVertex)
 	Vertex newVertex = aVertex;
 	DirectX::XMStoreFloat4(&newVertex.Position, vertexClipPos);
 
-	DirectX::XMVECTOR worldNormals = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.Normals.x, aVertex.Normals.y, aVertex.Normals.z, 0.0f), shaderBuffer.ObjectToWorld);
+	DirectX::XMVECTOR worldNormals = DirectX::XMVector3TransformNormal(DirectX::XMVectorSet(aVertex.Normals.x, aVertex.Normals.y, aVertex.Normals.z, 0.0f), shaderBuffer.ObjectToWorld);
 	DirectX::XMFLOAT4 worldNormalsFloat = {};
 	DirectX::XMStoreFloat4(&worldNormalsFloat, worldNormals);
 	newVertex.Normals.x = worldNormalsFloat.x;
 	newVertex.Normals.y = worldNormalsFloat.y;
 	newVertex.Normals.z = worldNormalsFloat.z;
 
-	DirectX::XMVECTOR worldTangents = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.Tangents.x, aVertex.Tangents.y, aVertex.Tangents.z, 0.0f), shaderBuffer.ObjectToWorld);
+	DirectX::XMVECTOR worldTangents = DirectX::XMVector3TransformNormal(DirectX::XMVectorSet(aVertex.Tangents.x, aVertex.Tangents.y, aVertex.Tangents.z, 0.0f), shaderBuffer.ObjectToWorld);
 	DirectX::XMFLOAT4 worldTangentsFloat = {};
 	DirectX::XMStoreFloat4(&worldTangentsFloat, worldTangents);
-	newVertex.Normals.x = worldTangentsFloat.x;
-	newVertex.Normals.y = worldTangentsFloat.y;
-	newVertex.Normals.z = worldTangentsFloat.z;
+	newVertex.Tangents.x = worldTangentsFloat.x;
+	newVertex.Tangents.y = worldTangentsFloat.y;
+	newVertex.Tangents.z = worldTangentsFloat.z;
 
 	DirectX::XMVECTOR worldBinormals = DirectX::XMVector3Cross(worldNormals, worldTangents);
 	DirectX::XMFLOAT4 worldBinormalsFloat = {};
@@ -222,10 +222,10 @@ PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTria
 void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 {
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
-	const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(0.5f, -1.0f, 0.5f));
+	const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(1.0f, 1.0f, -1.0f));
 	const DirectX::XMFLOAT3 specColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
 
-	DirectX::XMFLOAT3 cameraDir = { 0.0f, 0.0f, 1.0f };
+	DirectX::XMFLOAT3 cameraDir = { 0.0f, 0.0f, -1.0f };
 	cameraDir = Normalize(cameraDir);
 	DirectX::XMFLOAT3 halfDir = lightDir;
 	halfDir.x += cameraDir.x;

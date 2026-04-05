@@ -142,7 +142,7 @@ static void RenderRotatingCubes(Renderer& aRenderer, RenderTarget& aRenderTarget
 		shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
 			{ 1.0f, 1.0f, 1.0f, 1.0f },
 			{ 0.0f, 0.0f, 0.0f, 1.0f },
-			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll)),
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll + 12.0f)),
 			{ 3.0f, 2.0f, 12.0f, 1.0f }
 		);
 		aRenderer.Render();
@@ -150,7 +150,7 @@ static void RenderRotatingCubes(Renderer& aRenderer, RenderTarget& aRenderTarget
 		shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
 			{ 1.0f, 1.0f, 1.0f, 1.0f },
 			{ 0.0f, 0.0f, 0.0f, 1.0f },
-			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll)),
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll + 24.0f)),
 			{ -2.0f, 0.0f, 7.0f, 1.0f }
 		);
 		aRenderer.Render();
@@ -195,10 +195,10 @@ int main()
 	
 	CreateCubeModel(object.Model);
 	
-	//RenderStillObject(renderer, renderTarget, camera, object);
+	RenderStillObject(renderer, renderTarget, camera, object);
 	//RenderMultipleCubes(renderer, renderTarget, camera, object);
 	//RenderRotatingCube(renderer, renderTarget, camera, object);
-	RenderRotatingCubes(renderer, renderTarget, camera, object);
+	//RenderRotatingCubes(renderer, renderTarget, camera, object);
 
 	//std::cout << "Done" << std::endl;
 	//std::cin.get();
