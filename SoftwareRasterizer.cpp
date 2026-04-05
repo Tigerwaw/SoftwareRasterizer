@@ -34,6 +34,51 @@ static void RenderStillObject(Renderer& aRenderer, RenderTarget& aRenderTarget, 
 	WriteDataToBMPFile(std::filesystem::path("render.bmp"), aRenderTarget);
 }
 
+static void RenderMultipleCubes(Renderer& aRenderer, RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
+{
+	aRenderer.SetRenderTarget(&aRenderTarget);
+	aRenderer.SetTextureOnSlot(&aObject.Material.DiffuseTexture, 0);
+	aRenderer.SetTextureOnSlot(&aObject.Material.NormalTexture, 1);
+	aRenderer.SetVertexBuffer(aObject.Model.VertexList);
+	aRenderer.SetIndexBuffer(aObject.Model.IndexList);
+
+	ShaderBuffer shaderBuffer = {};
+	shaderBuffer.ObjectToWorld = aObject.WorldTransform;
+	shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
+	shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
+
+	aRenderer.SetShaderBuffer(&shaderBuffer);
+
+	shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 0.0f, 0.0f, 0.0f, 1.0f },
+		DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(0.0f)),
+		{ 0.0f, 0.0f, 5.0f, 1.0f }
+	);
+
+	aRenderer.Render();
+
+	shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 0.0f, 0.0f, 0.0f, 1.0f },
+		DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(0.0f)),
+		{ 3.0f, 2.0f, 12.0f, 1.0f }
+	);
+
+	aRenderer.Render();
+
+	shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ 0.0f, 0.0f, 0.0f, 1.0f },
+		DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(0.0f)),
+		{ -2.0f, 0.0f, 7.0f, 1.0f }
+	);
+
+	aRenderer.Render();
+	
+	WriteDataToBMPFile(std::filesystem::path("render.bmp"), aRenderTarget);
+}
+
 static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
 {
 	aRenderer.SetRenderTarget(&aRenderTarget);
@@ -61,6 +106,55 @@ static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget,
 
 		aRenderer.SetShaderBuffer(&shaderBuffer);
 		aRenderer.Render();
+		std::filesystem::path path("frame_" + std::to_string(i) + ".bmp");
+		WriteDataToBMPFile(path, aRenderTarget);
+		aRenderTarget.ClearRenderTarget();
+	}
+}
+
+static void RenderRotatingCubes(Renderer& aRenderer, RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
+{
+	aRenderer.SetRenderTarget(&aRenderTarget);
+	aRenderer.SetTextureOnSlot(&aObject.Material.DiffuseTexture, 0);
+	aRenderer.SetTextureOnSlot(&aObject.Material.NormalTexture, 1);
+	aRenderer.SetVertexBuffer(aObject.Model.VertexList);
+	aRenderer.SetIndexBuffer(aObject.Model.IndexList);
+
+	float objectRoll = 0.0f;
+	for (int i = 0; i < 30; i++)
+	{
+		objectRoll += 12.0f;
+
+		ShaderBuffer shaderBuffer = {};
+		shaderBuffer.ObjectToWorld = aObject.WorldTransform;
+		shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
+		shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
+		aRenderer.SetShaderBuffer(&shaderBuffer);
+
+		shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
+			{ 1.0f, 1.0f, 1.0f, 1.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll)),
+			{ 0.0f, 0.0f, 5.0f, 1.0f }
+		);
+		aRenderer.Render();
+
+		shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
+			{ 1.0f, 1.0f, 1.0f, 1.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll)),
+			{ 3.0f, 2.0f, 12.0f, 1.0f }
+		);
+		aRenderer.Render();
+
+		shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
+			{ 1.0f, 1.0f, 1.0f, 1.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll)),
+			{ -2.0f, 0.0f, 7.0f, 1.0f }
+		);
+		aRenderer.Render();
+
 		std::filesystem::path path("frame_" + std::to_string(i) + ".bmp");
 		WriteDataToBMPFile(path, aRenderTarget);
 		aRenderTarget.ClearRenderTarget();
@@ -101,8 +195,10 @@ int main()
 	
 	CreateCubeModel(object.Model);
 	
-	RenderStillObject(renderer, renderTarget, camera, object);
+	//RenderStillObject(renderer, renderTarget, camera, object);
+	//RenderMultipleCubes(renderer, renderTarget, camera, object);
 	//RenderRotatingCube(renderer, renderTarget, camera, object);
+	RenderRotatingCubes(renderer, renderTarget, camera, object);
 
 	//std::cout << "Done" << std::endl;
 	//std::cin.get();

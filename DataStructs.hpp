@@ -11,6 +11,7 @@ struct RenderTarget
 	unsigned Width;
 	unsigned Height;
 	std::vector<DirectX::XMFLOAT4> PixelColors;
+	std::vector<float> Depth;
 
 	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x + Width * aPixelCoordinate.y; }
 
@@ -21,13 +22,15 @@ struct RenderTarget
 	{
 		Width = aWidth;
 		Height = aHeight;
-		PixelColors.resize(static_cast<size_t>(Width * Height));
+		PixelColors.assign(static_cast<size_t>(Width * Height), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
 	}
 
 	void ClearRenderTarget()
 	{
 		PixelColors.clear();
-		PixelColors.resize(static_cast<size_t>(Width * Height));
+		PixelColors.assign(static_cast<size_t>(Width * Height), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
 	}
 };
 
@@ -99,30 +102,13 @@ struct ShaderBuffer
 struct PixelShaderInput
 {
 	unsigned RenderTargetIndex;
+	float Depth;
 	DirectX::XMFLOAT2 Position;
 	DirectX::XMFLOAT4 Color;
 	DirectX::XMFLOAT2 UV;
 	DirectX::XMFLOAT3 Normals;
 	DirectX::XMFLOAT3 Tangents;
 	DirectX::XMFLOAT3 Binormals;
-
-	PixelShaderInput() = default;
-	PixelShaderInput(unsigned aRenderTargetIndex,
-		DirectX::XMFLOAT2 aPosition,
-		DirectX::XMFLOAT4 aColor,
-		DirectX::XMFLOAT2 aUV,
-		DirectX::XMFLOAT3 aNormals,
-		DirectX::XMFLOAT3 aTangents,
-		DirectX::XMFLOAT3 aBinormals) :
-		RenderTargetIndex(aRenderTargetIndex),
-		Position(aPosition),
-		Color(aColor),
-		UV(aUV),
-		Normals(aNormals),
-		Tangents(aTangents),
-		Binormals(aBinormals)
-	{
-	}
 };
 
 struct Model

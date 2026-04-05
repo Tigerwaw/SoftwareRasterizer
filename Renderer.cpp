@@ -123,6 +123,7 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 	auto& renderTarget = *myRenderTarget;
 
 	DirectX::XMFLOAT2 vertexScreenPos[3] = {};
+	float vertexScreenDepth[3] = {};
 
 	for (size_t i = 0; i < 3; i++)
 	{
@@ -135,6 +136,7 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 		vertexNDCPos.y = (vertexNDCPos.y + 1.0f) * 0.5f;
 		vertexNDCPos.z = (vertexNDCPos.z + 1.0f) * 0.5f;
 		vertexScreenPos[i] = { vertexNDCPos.x * renderTarget.Width, vertexNDCPos.y * renderTarget.Height };
+		vertexScreenDepth[i] = vertexNDCPos.z;
 	}
 
 	float minX = std::min(std::min(vertexScreenPos[0].x, vertexScreenPos[1].x), vertexScreenPos[2].x);
@@ -142,18 +144,21 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 	float minY = std::min(std::min(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
 	float maxY = std::max(std::max(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
 
-	unsigned boundsStartXPixel = std::clamp(static_cast<unsigned>(std::floor(minX)), unsigned(0), renderTarget.Width - 1);
-	unsigned boundsEndXPixel = std::clamp(static_cast<unsigned>(std::ceil(maxX)), unsigned(0), renderTarget.Width - 1);
-	unsigned boundsStartYPixel = std::clamp(static_cast<unsigned>(std::floor(minY)), unsigned(0), renderTarget.Height - 1);
-	unsigned boundsEndYPixel = std::clamp(static_cast<unsigned>(std::ceil(maxY)), unsigned(0), renderTarget.Height - 1);
+	int boundsStartXPixel = std::clamp(static_cast<int>(std::floor(minX)), int(0), static_cast<int>(renderTarget.Width - 1));
+	int boundsEndXPixel = std::clamp(static_cast<int>(std::ceil(maxX)), int(0), static_cast<int>(renderTarget.Width - 1));
+	int boundsStartYPixel = std::clamp(static_cast<int>(std::floor(minY)), int(0), static_cast<int>(renderTarget.Height - 1));
+	int boundsEndYPixel = std::clamp(static_cast<int>(std::ceil(maxY)), int(0), static_cast<int>(renderTarget.Height - 1));
+
+	assert(boundsStartXPixel <= boundsEndXPixel);
+	assert(boundsStartYPixel <= boundsEndYPixel);
 
 	PIXScopedEvent(PIX_COLOR_INDEX(0), "Checking pixels inside triangle");
-	for (unsigned y = boundsStartYPixel; y < boundsEndYPixel; y++)
+	for (int y = boundsStartYPixel; y < boundsEndYPixel; y++)
 	{
-		for (unsigned x = boundsStartXPixel; x < boundsEndXPixel; x++)
+		for (int x = boundsStartXPixel; x < boundsEndXPixel; x++)
 		{
-			unsigned currentPixelIndex = x + renderTarget.Width * y;
-			if (currentPixelIndex > renderTarget.GetSize())
+			int currentPixelIndex = x + static_cast<int>(renderTarget.Width) * y;
+			if (currentPixelIndex > static_cast<int>(renderTarget.GetSize()))
 				break;
 
 			DirectX::XMFLOAT2 pixelPosition = { static_cast<float>(x), static_cast<float>(y) };
@@ -171,7 +176,13 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 
 				assert(weights.x >= 0.0f && weights.x <= 1.0f && weights.y >= 0.0f && weights.y <= 1.0f && weights.z >= 0.0f && weights.z <= 1.0f);
 
-				outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
+				float pixelDepth = vertexScreenDepth[0] * weights.x + vertexScreenDepth[1] * weights.y + vertexScreenDepth[2] * weights.z;
+				if (pixelDepth >= myRenderTarget->Depth[currentPixelIndex])
+					continue;
+
+				myRenderTarget->Depth[currentPixelIndex] = pixelDepth;
+				PixelShaderInput& result = outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
+				result.Depth = pixelDepth;
 			}
 		}
 	}
