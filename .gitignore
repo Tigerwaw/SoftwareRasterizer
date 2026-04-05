@@ -7,10 +7,10 @@ Software.4db416b3
 *.bmp
 
 # Compiled Dynamic libraries
-*.dll
+#*.dll
 
 # Compiled Static libraries
-*.lib
+#*.lib
 
 # Executables
 *.exe

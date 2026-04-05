@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include "Inc/DirectXMath.h"
+#include "DirectXMath.h"
 
 struct RenderTarget
 {
@@ -54,6 +54,12 @@ struct Texture
 
 struct Material
 {
+	enum class TextureSlot : unsigned
+	{
+		Diffuse = 0,
+		Normal = 1
+	};
+
 	Texture DiffuseTexture;
 	Texture NormalTexture;
 };
@@ -99,6 +105,24 @@ struct PixelShaderInput
 	DirectX::XMFLOAT3 Normals;
 	DirectX::XMFLOAT3 Tangents;
 	DirectX::XMFLOAT3 Binormals;
+
+	PixelShaderInput() = default;
+	PixelShaderInput(unsigned aRenderTargetIndex,
+		DirectX::XMFLOAT2 aPosition,
+		DirectX::XMFLOAT4 aColor,
+		DirectX::XMFLOAT2 aUV,
+		DirectX::XMFLOAT3 aNormals,
+		DirectX::XMFLOAT3 aTangents,
+		DirectX::XMFLOAT3 aBinormals) :
+		RenderTargetIndex(aRenderTargetIndex),
+		Position(aPosition),
+		Color(aColor),
+		UV(aUV),
+		Normals(aNormals),
+		Tangents(aTangents),
+		Binormals(aBinormals)
+	{
+	}
 };
 
 struct Model

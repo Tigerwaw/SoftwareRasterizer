@@ -1,5 +1,5 @@
 #pragma once
-#include "Inc/DirectXMath.h"
+#include "DirectXMath.h"
 #include "DataStructs.hpp"
 #include <chrono>
 #include <iostream>
@@ -366,12 +366,4 @@ static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Ren
 	}
 
 	file.close();
-}
-
-static std::chrono::time_point<std::chrono::system_clock> gTimepoint = std::chrono::system_clock::now();
-
-static void LogTime(const char* aLogString)
-{
-	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - gTimepoint);
-	std::cout << ms << " : " << aLogString << std::endl;
 }

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include "Inc/DirectXMath.h"
+#include "DirectXMath.h"
 #include <cassert>
 #include "DataStructs.hpp"
 #include "Utilities.hpp"
@@ -17,12 +17,31 @@ static void RenderStillObject(Renderer& aRenderer, RenderTarget& aRenderTarget, 
 	shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
 	shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
 	
-	aRenderer.RenderObject(aRenderTarget, aObject.Model, aObject.Material, shaderBuffer);
+	void SetRenderTarget(RenderTarget * aRenderTarget);
+	void SetShaderBuffer(ShaderBuffer * aShaderBuffer);
+	void SetTextureOnSlot(Texture * aTexture, unsigned aSlot);
+	void SetVertexBuffer(const std::vector<Vertex>&aVertexBuffer);
+	void SetIndexBuffer(const std::vector<unsigned>&aIndexBuffer);
+
+	aRenderer.SetRenderTarget(&aRenderTarget);
+	aRenderer.SetShaderBuffer(&shaderBuffer);
+	aRenderer.SetTextureOnSlot(&aObject.Material.DiffuseTexture, 0);
+	aRenderer.SetTextureOnSlot(&aObject.Material.NormalTexture, 1);
+	aRenderer.SetVertexBuffer(aObject.Model.VertexList);
+	aRenderer.SetIndexBuffer(aObject.Model.IndexList);
+
+	aRenderer.Render();
 	WriteDataToBMPFile(std::filesystem::path("render.bmp"), aRenderTarget);
 }
 
 static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget, const Camera& aCamera, Object& aObject)
 {
+	aRenderer.SetRenderTarget(&aRenderTarget);
+	aRenderer.SetTextureOnSlot(&aObject.Material.DiffuseTexture, 0);
+	aRenderer.SetTextureOnSlot(&aObject.Material.NormalTexture, 1);
+	aRenderer.SetVertexBuffer(aObject.Model.VertexList);
+	aRenderer.SetIndexBuffer(aObject.Model.IndexList);
+
 	float objectRoll = 0.0f;
 	for (int i = 0; i < 30; i++)
 	{
@@ -40,7 +59,8 @@ static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget,
 		shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
 		shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
 
-		aRenderer.RenderObject(aRenderTarget, aObject.Model, aObject.Material, shaderBuffer);
+		aRenderer.SetShaderBuffer(&shaderBuffer);
+		aRenderer.Render();
 		std::filesystem::path path("frame_" + std::to_string(i) + ".bmp");
 		WriteDataToBMPFile(path, aRenderTarget);
 		aRenderTarget.ClearRenderTarget();
@@ -81,6 +101,9 @@ int main()
 	
 	CreateCubeModel(object.Model);
 	
-	//RenderStillObject(renderer, renderTarget, camera, object);
-	RenderRotatingCube(renderer, renderTarget, camera, object);
+	RenderStillObject(renderer, renderTarget, camera, object);
+	//RenderRotatingCube(renderer, renderTarget, camera, object);
+
+	//std::cout << "Done" << std::endl;
+	//std::cin.get();
 }

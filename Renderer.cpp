@@ -1,61 +1,104 @@
 #include "Renderer.h"
 #include "Utilities.hpp"
+#include <future>
 
-void Renderer::RenderObject(RenderTarget& aRenderTarget, const Model& aModel, const Material& aMaterial, const ShaderBuffer& aShaderBuffer)
+#include <Windows.h>
+#undef min
+#undef max
+#ifndef _RETAIL
+#define USE_PIX
+#endif
+#include "WinPixEventRuntime/pix3.h"
+
+void Renderer::SetRenderTarget(RenderTarget* aRenderTarget)
 {
-	LogTime(__func__);
+	myRenderTarget = aRenderTarget;
+}
 
-	for (unsigned index = 0; index < static_cast<unsigned>(aModel.IndexList.size()); index += 3)
+void Renderer::SetShaderBuffer(ShaderBuffer* aShaderBuffer)
+{
+	myShaderBuffer = aShaderBuffer;
+}
+
+void Renderer::SetTextureOnSlot(Texture* aTexture, unsigned aSlot)
+{
+	assert(aSlot >= 0 && aSlot < myTextureResources.size());
+	myTextureResources[aSlot] = aTexture;
+}
+
+void Renderer::SetVertexBuffer(const std::vector<Vertex>& aVertexBuffer)
+{
+	myVertexBuffer = aVertexBuffer;
+}
+
+void Renderer::SetIndexBuffer(const std::vector<unsigned>& aIndexBuffer)
+{
+	myIndexBuffer = aIndexBuffer;
+}
+
+void Renderer::Render()
+{
+	assert(myRenderTarget != nullptr && "No render target has been bound!");
+	assert(myShaderBuffer != nullptr && "No shader buffer been bound!");
+	assert(myVertexBuffer.empty() == false && "No vertex buffer been bound!");
+	assert(myIndexBuffer.empty() == false && "No index buffer been bound!");
+
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
+	for (unsigned index = 0; index < static_cast<unsigned>(myIndexBuffer.size()); index += 3)
 	{
 		TrianglePrimitive prim;
-		prim.Vertices[0] = aModel.VertexList[aModel.IndexList[index + 0]];
-		prim.Vertices[1] = aModel.VertexList[aModel.IndexList[index + 1]];
-		prim.Vertices[2] = aModel.VertexList[aModel.IndexList[index + 2]];
-		DrawTriangle(aRenderTarget, prim, aMaterial, aShaderBuffer);
+		prim.Vertices[0] = myVertexBuffer[myIndexBuffer[index + 0]];
+		prim.Vertices[1] = myVertexBuffer[myIndexBuffer[index + 1]];
+		prim.Vertices[2] = myVertexBuffer[myIndexBuffer[index + 2]];
+		DrawTriangle(prim);
 	}
 }
 
-void Renderer::DrawTriangle(RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, const Material& aMaterial, const ShaderBuffer& aShaderBuffer)
+void Renderer::DrawTriangle(const TrianglePrimitive& aTriangle)
 {
-	LogTime(__func__);
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
 	TrianglePrimitive prim;
-	prim.Vertices[0] = VertexShader(aTriangle.Vertices[0], aShaderBuffer);
-	prim.Vertices[1] = VertexShader(aTriangle.Vertices[1], aShaderBuffer);
-	prim.Vertices[2] = VertexShader(aTriangle.Vertices[2], aShaderBuffer);
+	prim.Vertices[0] = VertexShader(aTriangle.Vertices[0]);
+	prim.Vertices[1] = VertexShader(aTriangle.Vertices[1]);
+	prim.Vertices[2] = VertexShader(aTriangle.Vertices[2]);
 
 	std::vector<PixelShaderInput> pixelList;
-	RasterizeTriangle(aRenderTarget, prim, pixelList);
+	RasterizeTriangle(prim, pixelList);
 
 	if (pixelList.empty())
 		return;
 
-	LogTime("Pixel Shader Loop");
+	PIXScopedEvent(PIX_COLOR_INDEX(0), "Pixel Shader Loop");
 	for (auto& pixel : pixelList)
 	{
-		PixelShader(aRenderTarget, pixel, aMaterial);
+		PixelShader(pixel);
 	}
 }
 
-Vertex Renderer::VertexShader(const Vertex& aVertex, const ShaderBuffer& aShaderBuffer)
+Vertex Renderer::VertexShader(const Vertex& aVertex)
 {
-	LogTime(__func__);
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
-	DirectX::XMVECTOR vertexWorldPos = DirectX::XMVector4Transform(DirectX::XMLoadFloat4(&aVertex.Position), aShaderBuffer.ObjectToWorld);
-	DirectX::XMVECTOR vertexViewPos = DirectX::XMVector4Transform(vertexWorldPos, DirectX::XMMatrixInverse(nullptr, aShaderBuffer.WorldToViewSpace));
-	DirectX::XMVECTOR vertexClipPos = DirectX::XMVector4Transform(vertexViewPos, aShaderBuffer.ViewToProjectionSpace);
+	assert(myShaderBuffer != nullptr);
+	auto& shaderBuffer = *myShaderBuffer;
+
+	DirectX::XMVECTOR vertexWorldPos = DirectX::XMVector4Transform(DirectX::XMLoadFloat4(&aVertex.Position), shaderBuffer.ObjectToWorld);
+	DirectX::XMVECTOR vertexViewPos = DirectX::XMVector4Transform(vertexWorldPos, DirectX::XMMatrixInverse(nullptr, shaderBuffer.WorldToViewSpace));
+	DirectX::XMVECTOR vertexClipPos = DirectX::XMVector4Transform(vertexViewPos, shaderBuffer.ViewToProjectionSpace);
 
 	Vertex newVertex = aVertex;
 	DirectX::XMStoreFloat4(&newVertex.Position, vertexClipPos);
 
-	DirectX::XMVECTOR worldNormals = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.Normals.x, aVertex.Normals.y, aVertex.Normals.z, 0.0f), aShaderBuffer.ObjectToWorld);
+	DirectX::XMVECTOR worldNormals = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.Normals.x, aVertex.Normals.y, aVertex.Normals.z, 0.0f), shaderBuffer.ObjectToWorld);
 	DirectX::XMFLOAT4 worldNormalsFloat = {};
 	DirectX::XMStoreFloat4(&worldNormalsFloat, worldNormals);
 	newVertex.Normals.x = worldNormalsFloat.x;
 	newVertex.Normals.y = worldNormalsFloat.y;
 	newVertex.Normals.z = worldNormalsFloat.z;
 
-	DirectX::XMVECTOR worldTangents = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.Tangents.x, aVertex.Tangents.y, aVertex.Tangents.z, 0.0f), aShaderBuffer.ObjectToWorld);
+	DirectX::XMVECTOR worldTangents = DirectX::XMVector4Transform(DirectX::XMVectorSet(aVertex.Tangents.x, aVertex.Tangents.y, aVertex.Tangents.z, 0.0f), shaderBuffer.ObjectToWorld);
 	DirectX::XMFLOAT4 worldTangentsFloat = {};
 	DirectX::XMStoreFloat4(&worldTangentsFloat, worldTangents);
 	newVertex.Normals.x = worldTangentsFloat.x;
@@ -72,9 +115,12 @@ Vertex Renderer::VertexShader(const Vertex& aVertex, const ShaderBuffer& aShader
 	return newVertex;
 }
 
-void Renderer::RasterizeTriangle(const RenderTarget& aRenderTarget, const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList)
+void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList)
 {
-	LogTime(__func__);
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
+	assert(myRenderTarget != nullptr);
+	auto& renderTarget = *myRenderTarget;
 
 	DirectX::XMFLOAT2 vertexScreenPos[3] = {};
 
@@ -88,7 +134,7 @@ void Renderer::RasterizeTriangle(const RenderTarget& aRenderTarget, const Triang
 		vertexNDCPos.x = (vertexNDCPos.x + 1.0f) * 0.5f;
 		vertexNDCPos.y = (vertexNDCPos.y + 1.0f) * 0.5f;
 		vertexNDCPos.z = (vertexNDCPos.z + 1.0f) * 0.5f;
-		vertexScreenPos[i] = { vertexNDCPos.x * aRenderTarget.Width, vertexNDCPos.y * aRenderTarget.Height };
+		vertexScreenPos[i] = { vertexNDCPos.x * renderTarget.Width, vertexNDCPos.y * renderTarget.Height };
 	}
 
 	float minX = std::min(std::min(vertexScreenPos[0].x, vertexScreenPos[1].x), vertexScreenPos[2].x);
@@ -96,18 +142,18 @@ void Renderer::RasterizeTriangle(const RenderTarget& aRenderTarget, const Triang
 	float minY = std::min(std::min(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
 	float maxY = std::max(std::max(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
 
-	unsigned boundsStartXPixel = std::clamp(static_cast<unsigned>(std::floor(minX)), unsigned(0), aRenderTarget.Width - 1);
-	unsigned boundsEndXPixel = std::clamp(static_cast<unsigned>(std::ceil(maxX)), unsigned(0), aRenderTarget.Width - 1);
-	unsigned boundsStartYPixel = std::clamp(static_cast<unsigned>(std::floor(minY)), unsigned(0), aRenderTarget.Height - 1);
-	unsigned boundsEndYPixel = std::clamp(static_cast<unsigned>(std::ceil(maxY)), unsigned(0), aRenderTarget.Height - 1);
+	unsigned boundsStartXPixel = std::clamp(static_cast<unsigned>(std::floor(minX)), unsigned(0), renderTarget.Width - 1);
+	unsigned boundsEndXPixel = std::clamp(static_cast<unsigned>(std::ceil(maxX)), unsigned(0), renderTarget.Width - 1);
+	unsigned boundsStartYPixel = std::clamp(static_cast<unsigned>(std::floor(minY)), unsigned(0), renderTarget.Height - 1);
+	unsigned boundsEndYPixel = std::clamp(static_cast<unsigned>(std::ceil(maxY)), unsigned(0), renderTarget.Height - 1);
 
-	LogTime("Checking pixels inside triangle");
+	PIXScopedEvent(PIX_COLOR_INDEX(0), "Checking pixels inside triangle");
 	for (unsigned y = boundsStartYPixel; y < boundsEndYPixel; y++)
 	{
 		for (unsigned x = boundsStartXPixel; x < boundsEndXPixel; x++)
 		{
-			unsigned currentPixelIndex = x + aRenderTarget.Width * y;
-			if (currentPixelIndex > aRenderTarget.GetSize())
+			unsigned currentPixelIndex = x + renderTarget.Width * y;
+			if (currentPixelIndex > renderTarget.GetSize())
 				break;
 
 			DirectX::XMFLOAT2 pixelPosition = { static_cast<float>(x), static_cast<float>(y) };
@@ -133,6 +179,8 @@ void Renderer::RasterizeTriangle(const RenderTarget& aRenderTarget, const Triang
 
 PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTriangle, unsigned aRenderTargetIndex, DirectX::XMFLOAT2 aPixelPosition, DirectX::XMFLOAT3 aWeights)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	PixelShaderInput pixel = {};
 	pixel.RenderTargetIndex = aRenderTargetIndex;
 	pixel.Position = aPixelPosition;
@@ -160,8 +208,9 @@ PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTria
 	return pixel;
 }
 
-void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& aPixelInput, const Material& aMaterial)
+void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 	const DirectX::XMFLOAT3 lightDir = Normalize(DirectX::XMFLOAT3(0.5f, -1.0f, 0.5f));
 	const DirectX::XMFLOAT3 specColor = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
 
@@ -173,7 +222,7 @@ void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& 
 	halfDir.z += cameraDir.z;
 	halfDir = Normalize(halfDir);
 
-	DirectX::XMFLOAT4 normalMap = aMaterial.NormalTexture.Sample(aPixelInput.UV);
+	DirectX::XMFLOAT4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->Sample(aPixelInput.UV);
 	DirectX::XMFLOAT3 calculatedNormals = {};
 	calculatedNormals.x = (normalMap.x - 0.5f) * 2.0f;
 	calculatedNormals.y = (normalMap.y - 0.5f) * 2.0f;
@@ -206,12 +255,12 @@ void Renderer::PixelShader(RenderTarget& aRenderTarget, const PixelShaderInput& 
 	spec.y = specColor.y * specularIntensity;
 	spec.z = specColor.z * specularIntensity;
 
-	DirectX::XMFLOAT4 diffuseMap = aMaterial.DiffuseTexture.Sample(aPixelInput.UV);
+	DirectX::XMFLOAT4 diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->Sample(aPixelInput.UV);
 	DirectX::XMFLOAT4 color = {};
 	color.x = std::clamp(diffuseMap.x + spec.x, 0.0f, 1.0f);
 	color.y = std::clamp(diffuseMap.y + spec.y, 0.0f, 1.0f);
 	color.z = std::clamp(diffuseMap.z + spec.z, 0.0f, 1.0f);
 	color.w = 1.0f;
 
-	aRenderTarget.PixelColors[aPixelInput.RenderTargetIndex] = color;
+	myRenderTarget->PixelColors[aPixelInput.RenderTargetIndex] = color;
 }
