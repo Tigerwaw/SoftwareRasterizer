@@ -347,7 +347,7 @@ static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Tex
 	file.close();
 }
 
-static void GaussianBlur(Texture& aSourceTexture, Texture& aDestinationTexture)
+static void GaussianBlur(const Texture& aSourceTexture, Texture& aDestinationTexture)
 {
 	assert(aSourceTexture.Width == aDestinationTexture.Width && aSourceTexture.Height == aDestinationTexture.Height);
 
@@ -389,4 +389,41 @@ static void GaussianBlur(Texture& aSourceTexture, Texture& aDestinationTexture)
 
 		aDestinationTexture.TextureData[i] = mainColor + leftColor + rightColor + aboveColor + belowColor + leftAboveColor + leftBelowColor + rightAboveColor + rightBelowColor;
 	}
+}
+
+static void Resample(const Texture& aSourceTexture, Texture& aDestinationTexture)
+{
+	for (int i = 0; i < static_cast<int>(aDestinationTexture.GetSize()); i++)
+	{
+		DirectX::XMINT2 pixelCoords = aDestinationTexture.GetPixelCoordinates(i);
+		Vector2 normCoords = { static_cast<float>(pixelCoords.x) / aDestinationTexture.Width, static_cast<float>(pixelCoords.y) / aDestinationTexture.Height };
+		
+		aDestinationTexture.TextureData[i] = aSourceTexture.Sample(normCoords);
+	}
+}
+
+static void CreateMipChain(const Texture& aSourceTexture, MipChainTexture& aMipChainTexture)
+{
+	assert(aSourceTexture.Width == aSourceTexture.Height);
+	assert(aSourceTexture.Width == static_cast<unsigned>(pow(2, log2(aSourceTexture.Width))));
+
+	for (unsigned i = aSourceTexture.Width; i != 0; i = static_cast<unsigned>(i * 0.5f))
+	{
+		Texture downSample;
+		downSample.Initialize(i, i);
+
+		Texture& blurred = aMipChainTexture.MipChain.emplace_back();
+		blurred.Initialize(i, i);
+
+		Resample(aSourceTexture, downSample);
+		GaussianBlur(downSample, blurred);
+	}
+
+	aMipChainTexture.MipMaxLevel = static_cast<unsigned>(aMipChainTexture.MipChain.size() - 1);
+}
+
+static int GetAppropriateMipLevel(float aDepth, int aMipMaxLevel)
+{
+	aDepth = 1.0f - aDepth;
+	return static_cast<int>(std::roundf(aDepth * aMipMaxLevel));
 }

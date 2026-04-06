@@ -195,7 +195,7 @@ int main()
 	
 	CreateCubeModel(object.Model);
 
-	//RenderStillObject(renderer, renderTarget, camera, object);
+	RenderStillObject(renderer, renderTarget, camera, object);
 	//RenderMultipleCubes(renderer, renderTarget, camera, object);
 	//RenderRotatingCube(renderer, renderTarget, camera, object);
 	//RenderRotatingCubes(renderer, renderTarget, camera, object);

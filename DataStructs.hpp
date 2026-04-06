@@ -41,6 +41,19 @@ struct Texture
 	}
 };
 
+struct MipChainTexture
+{
+	std::vector<Texture> MipChain;
+	unsigned MipMaxLevel;
+
+	Vector4 SampleLevel(Vector2 aUVCoordinates, unsigned aLevel) const
+	{
+		assert(aLevel >= 0 && aLevel < MipMaxLevel);
+
+		return MipChain[aLevel].Sample(aUVCoordinates);
+	}
+};
+
 struct RenderTarget : public Texture
 {
 	std::vector<float> Depth;
