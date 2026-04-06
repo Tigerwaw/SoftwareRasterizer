@@ -6,34 +6,6 @@
 #include <filesystem>
 #include "DirectXMath.h"
 
-struct RenderTarget
-{
-	unsigned Width;
-	unsigned Height;
-	std::vector<DirectX::XMFLOAT4> PixelColors;
-	std::vector<float> Depth;
-
-	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x + Width * aPixelCoordinate.y; }
-
-	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % Width), static_cast<int32_t>(std::floor(i / Width)) }; }
-	unsigned GetSize() const { return Width * Height; }
-
-	void InitializeRenderTarget(unsigned aWidth, unsigned aHeight)
-	{
-		Width = aWidth;
-		Height = aHeight;
-		PixelColors.assign(static_cast<size_t>(Width * Height), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
-	}
-
-	void ClearRenderTarget()
-	{
-		PixelColors.clear();
-		PixelColors.assign(static_cast<size_t>(Width * Height), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
-	}
-};
-
 struct Texture
 {
 	unsigned Width;
@@ -52,6 +24,32 @@ struct Texture
 		assert(pixelIndex >= 0 && pixelIndex < TextureData.size());
 
 		return TextureData[pixelIndex];
+	}
+};
+
+struct RenderTarget : public Texture
+{
+	std::vector<float> Depth;
+
+	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x + Width * aPixelCoordinate.y; }
+
+	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % Width), static_cast<int32_t>(std::floor(i / Width)) }; }
+	unsigned GetSize() const { return Width * Height; }
+
+	void InitializeRenderTarget(unsigned aWidth, unsigned aHeight)
+	{
+		Width = aWidth;
+		Height = aHeight;
+		TextureData.assign(static_cast<size_t>(Width * Height), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
+	}
+
+	void ClearRenderTarget()
+	{
+		TextureData.clear();
+		Depth.clear();
+		TextureData.assign(static_cast<size_t>(Width * Height), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
 	}
 };
 

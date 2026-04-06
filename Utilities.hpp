@@ -303,11 +303,14 @@ static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTextur
 	}
 }
 
-static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const RenderTarget& aRenderTarget)
+static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Texture& aTexture)
 {
+	unsigned width = aTexture.Width;
+	unsigned height = aTexture.Height;
+
 	const unsigned headerSize = 14;
 	const unsigned infoHeaderSize = 40;
-	unsigned dataSize = static_cast<unsigned>(aRenderTarget.PixelColors.size() * 4);
+	unsigned dataSize = static_cast<unsigned>(aTexture.TextureData.size() * 4);
 	unsigned dataOffset = headerSize + infoHeaderSize;
 	unsigned fileSize = dataOffset + dataSize;
 	short planes = 1;
@@ -328,14 +331,14 @@ static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Ren
 	infoHeader[1] = static_cast<char>(infoHeaderSize >> 8);
 	infoHeader[2] = static_cast<char>(infoHeaderSize >> 16);
 	infoHeader[3] = static_cast<char>(infoHeaderSize >> 24);
-	infoHeader[4] = static_cast<char>(aRenderTarget.Width);
-	infoHeader[5] = static_cast<char>(aRenderTarget.Width >> 8);
-	infoHeader[6] = static_cast<char>(aRenderTarget.Width >> 16);
-	infoHeader[7] = static_cast<char>(aRenderTarget.Width >> 24);
-	infoHeader[8] = static_cast<char>(aRenderTarget.Height);
-	infoHeader[9] = static_cast<char>(aRenderTarget.Height >> 8);
-	infoHeader[10] = static_cast<char>(aRenderTarget.Height >> 16);
-	infoHeader[11] = static_cast<char>(aRenderTarget.Height >> 24);
+	infoHeader[4] = static_cast<char>(width);
+	infoHeader[5] = static_cast<char>(width >> 8);
+	infoHeader[6] = static_cast<char>(width >> 16);
+	infoHeader[7] = static_cast<char>(width >> 24);
+	infoHeader[8] = static_cast<char>(height);
+	infoHeader[9] = static_cast<char>(height >> 8);
+	infoHeader[10] = static_cast<char>(height >> 16);
+	infoHeader[11] = static_cast<char>(height >> 24);
 	infoHeader[12] = static_cast<char>(planes);
 	infoHeader[13] = static_cast<char>(planes >> 8);
 	infoHeader[14] = static_cast<char>(bitsPerPixel);
@@ -354,15 +357,20 @@ static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Ren
 	file.write(fileHeader, headerSize);
 	file.write(infoHeader, infoHeaderSize);
 
-	for (auto& pixelColor : aRenderTarget.PixelColors)
+	for (int y = static_cast<int>(height - 1); y >= 0; y--)
 	{
-		char colors[4] = { 0 };
-		colors[0] = static_cast<char>(pixelColor.z * 255);
-		colors[1] = static_cast<char>(pixelColor.y * 255);
-		colors[2] = static_cast<char>(pixelColor.x * 255);
-		colors[3] = static_cast<char>(pixelColor.w * 255);
+		for (int x = 0; x < static_cast<int>(width); x++)
+		{
+			auto& pixelColor = aTexture.TextureData[static_cast<size_t>(x + width * y)];
 
-		file.write(colors, sizeof(colors));
+			char colors[4] = { 0 };
+			colors[0] = static_cast<char>(pixelColor.z * 255);
+			colors[1] = static_cast<char>(pixelColor.y * 255);
+			colors[2] = static_cast<char>(pixelColor.x * 255);
+			colors[3] = static_cast<char>(pixelColor.w * 255);
+
+			file.write(colors, sizeof(colors));
+		}
 	}
 
 	file.close();

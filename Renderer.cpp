@@ -273,5 +273,5 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	color.z = std::clamp(diffuseMap.z + spec.z, 0.0f, 1.0f);
 	color.w = 1.0f;
 
-	myRenderTarget->PixelColors[aPixelInput.RenderTargetIndex] = color;
+	myRenderTarget->TextureData[aPixelInput.RenderTargetIndex] = color;
 }
