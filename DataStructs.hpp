@@ -4,15 +4,29 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include "DirectXMath.h"
+#include "SimpleMath.h"
+
+using namespace DirectX::SimpleMath;
 
 struct Texture
 {
 	unsigned Width;
 	unsigned Height;
-	std::vector<DirectX::XMFLOAT4> TextureData;
+	std::vector<Vector4> TextureData;
 
-	DirectX::XMFLOAT4 Sample(DirectX::XMFLOAT2 aUVCoordinates) const
+	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return std::clamp<int32_t>(aPixelCoordinate.x, 0, Width - 1) + Width * std::clamp<int32_t>(aPixelCoordinate.y, 0, Height - 1); }
+
+	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % Width), static_cast<int32_t>(std::floor(i / Width)) }; }
+	unsigned GetSize() const { return Width * Height; }
+
+	virtual void Initialize(unsigned aWidth, unsigned aHeight)
+	{
+		Width = aWidth;
+		Height = aHeight;
+		TextureData.assign(static_cast<size_t>(Width * Height), Vector4(0.0f, 0.0f, 0.0f, 0.0f));
+	}
+
+	Vector4 Sample(Vector2 aUVCoordinates) const
 	{
 		unsigned x = static_cast<unsigned>(aUVCoordinates.x * Width);
 		unsigned y = static_cast<unsigned>(aUVCoordinates.y * Height);
@@ -31,16 +45,9 @@ struct RenderTarget : public Texture
 {
 	std::vector<float> Depth;
 
-	unsigned GetPixelIndex(DirectX::XMINT2 aPixelCoordinate) const { return aPixelCoordinate.x + Width * aPixelCoordinate.y; }
-
-	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % Width), static_cast<int32_t>(std::floor(i / Width)) }; }
-	unsigned GetSize() const { return Width * Height; }
-
-	void InitializeRenderTarget(unsigned aWidth, unsigned aHeight)
+	void Initialize(unsigned aWidth, unsigned aHeight) override
 	{
-		Width = aWidth;
-		Height = aHeight;
-		TextureData.assign(static_cast<size_t>(Width * Height), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
+		Texture::Initialize(aWidth, aHeight);
 		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
 	}
 
@@ -48,8 +55,7 @@ struct RenderTarget : public Texture
 	{
 		TextureData.clear();
 		Depth.clear();
-		TextureData.assign(static_cast<size_t>(Width * Height), DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 0.0f));
-		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
+		Initialize(Width, Height);
 	}
 };
 
@@ -67,15 +73,15 @@ struct Material
 
 struct Vertex
 {
-	DirectX::XMFLOAT4 Position;
-	DirectX::XMFLOAT4 Color;
-	DirectX::XMFLOAT2 UV;
-	DirectX::XMFLOAT3 Normals;
-	DirectX::XMFLOAT3 Tangents;
-	DirectX::XMFLOAT3 Binormals;
+	Vector4 Position;
+	Vector4 Color;
+	Vector2 UV;
+	Vector3 Normals;
+	Vector3 Tangents;
+	Vector3 Binormals;
 
 	Vertex() = default;
-	Vertex(DirectX::XMFLOAT4 aPosition, DirectX::XMFLOAT4 aColor, DirectX::XMFLOAT2 aUV, DirectX::XMFLOAT3 aNormals, DirectX::XMFLOAT3 aTangents) :
+	Vertex(Vector4 aPosition, Vector4 aColor, Vector2 aUV, Vector3 aNormals, Vector3 aTangents) :
 		Position(aPosition),
 		Color(aColor),
 		UV(aUV),
@@ -92,21 +98,21 @@ struct TrianglePrimitive
 
 struct ShaderBuffer
 {
-	DirectX::XMMATRIX ObjectToWorld;
-	DirectX::XMMATRIX WorldToViewSpace;
-	DirectX::XMMATRIX ViewToProjectionSpace;
+	Matrix ObjectToWorld;
+	Matrix WorldToViewSpace;
+	Matrix ViewToProjectionSpace;
 };
 
 struct PixelShaderInput
 {
 	unsigned RenderTargetIndex;
 	float Depth;
-	DirectX::XMFLOAT2 Position;
-	DirectX::XMFLOAT4 Color;
-	DirectX::XMFLOAT2 UV;
-	DirectX::XMFLOAT3 Normals;
-	DirectX::XMFLOAT3 Tangents;
-	DirectX::XMFLOAT3 Binormals;
+	Vector2 Position;
+	Vector4 Color;
+	Vector2 UV;
+	Vector3 Normals;
+	Vector3 Tangents;
+	Vector3 Binormals;
 };
 
 struct Model
@@ -119,13 +125,13 @@ struct Object
 {
 	Model Model;
 	Material Material;
-	DirectX::XMMATRIX WorldTransform = DirectX::XMMatrixIdentity();
+	Matrix WorldTransform;
 };
 
 struct Camera
 {
 	unsigned Height;
 	unsigned Width;
-	DirectX::XMMATRIX WorldTransform = DirectX::XMMatrixIdentity();
-	DirectX::XMMATRIX ProjectionMatrix = DirectX::XMMatrixIdentity();
+	Matrix WorldTransform;
+	Matrix ProjectionMatrix;
 };

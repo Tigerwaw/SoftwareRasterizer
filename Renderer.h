@@ -17,7 +17,7 @@ private:
 	void DrawTriangle(const TrianglePrimitive& aTriangle);
 	Vertex VertexShader(const Vertex& aVertex);
 	void RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList);
-	PixelShaderInput InterpolatePixelValues(const TrianglePrimitive& aTriangle, unsigned aRenderTargetIndex, DirectX::XMFLOAT2 aPixelPosition, DirectX::XMFLOAT3 aWeights);
+	PixelShaderInput InterpolatePixelValues(const TrianglePrimitive& aTriangle, unsigned aRenderTargetIndex, Vector2 aPixelPosition, Vector3 aWeights);
 	void PixelShader(const PixelShaderInput& aPixelInput);
 
 private:

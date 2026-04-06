@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include "DirectXMath.h"
+#include "SimpleMath.h"
 #include <cassert>
 #include "DataStructs.hpp"
 #include "Utilities.hpp"
@@ -14,7 +14,7 @@ static void RenderStillObject(Renderer& aRenderer, RenderTarget& aRenderTarget, 
 {
 	ShaderBuffer shaderBuffer = {};
 	shaderBuffer.ObjectToWorld = aObject.WorldTransform;
-	shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
+	aCamera.WorldTransform.Invert(shaderBuffer.WorldToViewSpace);
 	shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
 	
 	void SetRenderTarget(RenderTarget * aRenderTarget);
@@ -44,7 +44,7 @@ static void RenderMultipleCubes(Renderer& aRenderer, RenderTarget& aRenderTarget
 
 	ShaderBuffer shaderBuffer = {};
 	shaderBuffer.ObjectToWorld = aObject.WorldTransform;
-	shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
+	aCamera.WorldTransform.Invert(shaderBuffer.WorldToViewSpace);
 	shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
 
 	aRenderer.SetShaderBuffer(&shaderBuffer);
@@ -87,21 +87,21 @@ static void RenderRotatingCube(Renderer& aRenderer, RenderTarget& aRenderTarget,
 	aRenderer.SetVertexBuffer(aObject.Model.VertexList);
 	aRenderer.SetIndexBuffer(aObject.Model.IndexList);
 
-	float objectRoll = 0.0f;
+	float objectRot = 0.0f;
 	for (int i = 0; i < 30; i++)
 	{
-		objectRoll += 12.0f;
+		objectRot += 12.0f;
 
 		aObject.WorldTransform = DirectX::XMMatrixAffineTransformation(
 			{ 1.0f, 1.0f, 1.0f, 1.0f },
 			{ 0.0f, 0.0f, 0.0f, 1.0f },
-			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll)),
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRot), DirectX::XMConvertToRadians(45.0f)),
 			{ 0.0f, 0.0f, 5.0f, 1.0f }
 		);
 
 		ShaderBuffer shaderBuffer = {};
 		shaderBuffer.ObjectToWorld = aObject.WorldTransform;
-		shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
+		aCamera.WorldTransform.Invert(shaderBuffer.WorldToViewSpace);
 		shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
 
 		aRenderer.SetShaderBuffer(&shaderBuffer);
@@ -120,21 +120,21 @@ static void RenderRotatingCubes(Renderer& aRenderer, RenderTarget& aRenderTarget
 	aRenderer.SetVertexBuffer(aObject.Model.VertexList);
 	aRenderer.SetIndexBuffer(aObject.Model.IndexList);
 
-	float objectRoll = 0.0f;
+	float objectRot = 0.0f;
 	for (int i = 0; i < 30; i++)
 	{
-		objectRoll += 12.0f;
+		objectRot += 12.0f;
 
 		ShaderBuffer shaderBuffer = {};
 		shaderBuffer.ObjectToWorld = aObject.WorldTransform;
-		shaderBuffer.WorldToViewSpace = DirectX::XMMatrixInverse(nullptr, aCamera.WorldTransform);
+		aCamera.WorldTransform.Invert(shaderBuffer.WorldToViewSpace);
 		shaderBuffer.ViewToProjectionSpace = aCamera.ProjectionMatrix;
 		aRenderer.SetShaderBuffer(&shaderBuffer);
 
 		shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
 			{ 1.0f, 1.0f, 1.0f, 1.0f },
 			{ 0.0f, 0.0f, 0.0f, 1.0f },
-			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll)),
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRot), DirectX::XMConvertToRadians(45.0f)),
 			{ 0.0f, 0.0f, 5.0f, 1.0f }
 		);
 		aRenderer.Render();
@@ -142,7 +142,7 @@ static void RenderRotatingCubes(Renderer& aRenderer, RenderTarget& aRenderTarget
 		shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
 			{ 1.0f, 1.0f, 1.0f, 1.0f },
 			{ 0.0f, 0.0f, 0.0f, 1.0f },
-			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll + 12.0f)),
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRot)),
 			{ 3.0f, 2.0f, 12.0f, 1.0f }
 		);
 		aRenderer.Render();
@@ -150,7 +150,7 @@ static void RenderRotatingCubes(Renderer& aRenderer, RenderTarget& aRenderTarget
 		shaderBuffer.ObjectToWorld = DirectX::XMMatrixAffineTransformation(
 			{ 1.0f, 1.0f, 1.0f, 1.0f },
 			{ 0.0f, 0.0f, 0.0f, 1.0f },
-			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(objectRoll + 24.0f)),
+			DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(objectRot), DirectX::XMConvertToRadians(45.0f), DirectX::XMConvertToRadians(45.0f)),
 			{ -2.0f, 0.0f, 7.0f, 1.0f }
 		);
 		aRenderer.Render();
@@ -166,7 +166,7 @@ int main()
 	Renderer renderer;
 
 	RenderTarget renderTarget;
-	renderTarget.InitializeRenderTarget(512, 512);
+	renderTarget.Initialize(512, 512);
 
 	Camera camera;
 	camera.Width = renderTarget.Width;
@@ -194,8 +194,8 @@ int main()
 	);
 	
 	CreateCubeModel(object.Model);
-	
-	RenderStillObject(renderer, renderTarget, camera, object);
+
+	//RenderStillObject(renderer, renderTarget, camera, object);
 	//RenderMultipleCubes(renderer, renderTarget, camera, object);
 	//RenderRotatingCube(renderer, renderTarget, camera, object);
 	//RenderRotatingCubes(renderer, renderTarget, camera, object);

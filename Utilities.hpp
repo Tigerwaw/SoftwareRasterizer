@@ -1,48 +1,23 @@
 #pragma once
-#include "DirectXMath.h"
+#include "SimpleMath.h"
 #include "DataStructs.hpp"
 #include <chrono>
 #include <iostream>
 #include <fstream>
+
+using namespace DirectX::SimpleMath;
 
 static float LerpValue(float aA, float aB, float aT)
 {
 	return aA + (aB - aA) * aT;
 }
 
-static float Dot(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB)
-{
-	return aA.x * aB.x + aA.y * aB.y;
-}
-
-static float Dot(DirectX::XMFLOAT3 aA, DirectX::XMFLOAT3 aB)
-{
-	return aA.x * aB.x + aA.y * aB.y + aA.z * aB.z;
-}
-
-static DirectX::XMFLOAT3 Normalize(DirectX::XMFLOAT3 aVector)
-{
-	float lengthSqr = Dot(aVector, aVector);
-	float length = sqrt(lengthSqr);
-
-	if (length > 0.0f)
-	{
-		length = 1.0f / length;
-	}
-
-	aVector.x *= length;
-	aVector.y *= length;
-	aVector.z *= length;
-
-	return aVector;
-}
-
-static float Edge(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aC)
+static float Edge(Vector2 aA, Vector2 aB, Vector2 aC)
 {
 	return (aC.x - aA.x) * (aB.y - aA.y) - (aC.y - aA.y) * (aB.x - aA.x);
 }
 
-static bool IsPointInsideTriangle(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, DirectX::XMFLOAT2 aC, DirectX::XMFLOAT2 aP, DirectX::XMFLOAT3& outWeights)
+static bool IsPointInsideTriangle(Vector2 aA, Vector2 aB, Vector2 aC, Vector2 aP, Vector3& outWeights)
 {
 	float area = Edge(aA, aB, aC);
 
@@ -64,8 +39,8 @@ static bool IsPointInsideTriangle(DirectX::XMFLOAT2 aA, DirectX::XMFLOAT2 aB, Di
 
 static void CreateCubeModel(Model& aModel)
 {
-	DirectX::XMFLOAT4 emptyColor = { 0.2f, 0.2f, 0.2f, 1.0f };
-	DirectX::XMFLOAT2 uv[24] = {
+	Vector4 emptyColor = { 0.2f, 0.2f, 0.2f, 1.0f };
+	Vector2 uv[24] = {
 		{1.0f, 0.0f},
 		{1.0f, 1.0f},
 		{0.0f, 1.0f},
@@ -97,7 +72,7 @@ static void CreateCubeModel(Model& aModel)
 		{0.0f, 0.0f},
 	};
 
-	DirectX::XMFLOAT4 pos[24] = {
+	Vector4 pos[24] = {
 		{1,1,-1, 1}, // BACK
 		{1,-1,-1, 1},
 		{-1,-1,-1, 1},
@@ -129,7 +104,7 @@ static void CreateCubeModel(Model& aModel)
 		{-1,1,1, 1},
 	};
 
-	DirectX::XMFLOAT3 normals[24] = {
+	Vector3 normals[24] = {
 		{ 0, 0, -1 }, // BACK
 		{ 0, 0, -1 },
 		{ 0, 0, -1 },
@@ -161,7 +136,7 @@ static void CreateCubeModel(Model& aModel)
 		{ 0, 1, 0 }
 	};
 
-	DirectX::XMFLOAT3 tangents[24] = {
+	Vector3 tangents[24] = {
 	{ 1, 0, 0 }, // BACK
 	{ 1, 0, 0 },
 	{ 1, 0, 0 },
@@ -273,14 +248,10 @@ static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTextur
 		memcpy(&bitsPerPixel, &buffer[28], 2);
 		memcpy(&compression, &buffer[30], 4);
 
-		aTexture.Width = width;
-		aTexture.Height = height;
-		aTexture.TextureData.resize(static_cast<size_t>(width * height));
+		aTexture.Initialize(width, height);
 
 		int bytesPerPixel = bitsPerPixel / 8;
 		int rowStride = ((width * bytesPerPixel + 3) / 4) * 4;
-
-		aTexture.TextureData.resize(width * height);
 
 		for (unsigned y = 0; y < height; ++y)
 		{
@@ -374,4 +345,48 @@ static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Tex
 	}
 
 	file.close();
+}
+
+static void GaussianBlur(Texture& aSourceTexture, Texture& aDestinationTexture)
+{
+	assert(aSourceTexture.Width == aDestinationTexture.Width && aSourceTexture.Height == aDestinationTexture.Height);
+
+	for (int i = 0; i < static_cast<int>(aSourceTexture.GetSize()); i++)
+	{
+		DirectX::XMINT2 mainSampleCoords = aSourceTexture.GetPixelCoordinates(i);
+		DirectX::XMINT2 leftSampleCoords = { mainSampleCoords.x - 1, mainSampleCoords.y };
+		DirectX::XMINT2 rightSampleCoords = { mainSampleCoords.x + 1, mainSampleCoords.y };
+		DirectX::XMINT2 aboveSampleCoords = { mainSampleCoords.x, mainSampleCoords.y - 1 };
+		DirectX::XMINT2 belowSampleCoords = { mainSampleCoords.x, mainSampleCoords.y + 1 };
+		DirectX::XMINT2 leftAboveSampleCoords = { mainSampleCoords.x - 1, mainSampleCoords.y - 1 };
+		DirectX::XMINT2 leftBelowSampleCoords = { mainSampleCoords.x - 1, mainSampleCoords.y + 1 };
+		DirectX::XMINT2 rightAboveSampleCoords = { mainSampleCoords.x + 1, mainSampleCoords.y - 1 };
+		DirectX::XMINT2 rightBelowSampleCoords = { mainSampleCoords.x + 1, mainSampleCoords.y + 1 };
+
+		Vector4 mainColor = aSourceTexture.TextureData[i];
+		Vector4 leftColor = aSourceTexture.TextureData[aSourceTexture.GetPixelIndex(leftSampleCoords)];
+		Vector4 rightColor = aSourceTexture.TextureData[aSourceTexture.GetPixelIndex(rightSampleCoords)];
+		Vector4 aboveColor = aSourceTexture.TextureData[aSourceTexture.GetPixelIndex(aboveSampleCoords)];
+		Vector4 belowColor = aSourceTexture.TextureData[aSourceTexture.GetPixelIndex(belowSampleCoords)];
+		Vector4 leftAboveColor = aSourceTexture.TextureData[aSourceTexture.GetPixelIndex(leftAboveSampleCoords)];
+		Vector4 leftBelowColor = aSourceTexture.TextureData[aSourceTexture.GetPixelIndex(leftBelowSampleCoords)];
+		Vector4 rightAboveColor = aSourceTexture.TextureData[aSourceTexture.GetPixelIndex(rightAboveSampleCoords)];
+		Vector4 rightBelowColor = aSourceTexture.TextureData[aSourceTexture.GetPixelIndex(rightBelowSampleCoords)];
+
+		const float m1_16 = 1.0f / 16.0f;
+		const float m2_16 = 2.0f / 16.0f;
+		const float m4_16 = 4.0f / 16.0f;
+
+		mainColor *= m4_16;
+		leftColor *= m2_16;
+		rightColor *= m2_16;
+		aboveColor *= m2_16;
+		belowColor *= m2_16;
+		leftAboveColor *= m1_16;
+		leftBelowColor *= m1_16;
+		rightAboveColor *= m1_16;
+		rightBelowColor *= m1_16;
+
+		aDestinationTexture.TextureData[i] = mainColor + leftColor + rightColor + aboveColor + belowColor + leftAboveColor + leftBelowColor + rightAboveColor + rightBelowColor;
+	}
 }
