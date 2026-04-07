@@ -5,6 +5,15 @@
 #include <iostream>
 #include <fstream>
 
+#include <windows.h>
+#undef min
+#undef max
+
+#include <assimp/Importer.hpp>
+#include <assimp/mesh.h>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 using namespace DirectX::SimpleMath;
 
 static float LerpValue(float aA, float aB, float aT)
@@ -328,7 +337,7 @@ static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Tex
 	file.write(fileHeader, headerSize);
 	file.write(infoHeader, infoHeaderSize);
 
-	for (int y = static_cast<int>(height - 1); y >= 0; y--)
+	for (int y = 0; y < static_cast<int>(height); y++)
 	{
 		for (int x = 0; x < static_cast<int>(width); x++)
 		{
@@ -426,4 +435,118 @@ static int GetAppropriateMipLevel(float aDepth, int aMipMaxLevel)
 {
 	aDepth = 1.0f - aDepth;
 	return static_cast<int>(std::roundf(aDepth * aMipMaxLevel));
+}
+
+static bool LineContainsKeyword(const std::string& aString, const std::string& aKeyword)
+{
+	return aString.find(aKeyword, 0) != std::string::npos;
+}
+
+static std::string GetMaterialParameter(const std::string& aString, const std::string& aKeyword)
+{
+	return aString.substr(aKeyword.length() + 1, aString.size());
+}
+
+static std::wstring ConvertStringToWString(const std::string& aString)
+{
+	return std::wstring(aString.begin(), aString.end());
+}
+
+static void LoadMaterials(std::vector<Material>& aMaterialList)
+{
+	std::ifstream file("Assets/sponza.mtl");
+	std::string line;
+	while (std::getline(file, line))
+	{
+		std::string keyword = "newmtl";
+		if (LineContainsKeyword(line, keyword))
+		{
+			Material& newMaterial = aMaterialList.emplace_back();
+			newMaterial.Name = GetMaterialParameter(line, keyword);
+		}
+
+		if (aMaterialList.empty())
+			continue;
+
+		keyword = "map_Kd";
+		if (LineContainsKeyword(line, keyword))
+		{
+			std::filesystem::path filePath = "Assets/" + GetMaterialParameter(line, keyword);
+			filePath.replace_extension("bmp");
+			LoadBMPFile(filePath.wstring().c_str(), aMaterialList.back().DiffuseTexture);
+		}
+
+		keyword = "map_Disp";
+		if (LineContainsKeyword(line, keyword))
+		{
+			std::filesystem::path filePath = "assets/" + GetMaterialParameter(line, keyword);
+			filePath.replace_extension("bmp");
+			LoadBMPFile(filePath.wstring().c_str(), aMaterialList.back().NormalTexture);
+		}
+	}
+
+	file.close();
+}
+
+static void LoadObjects(std::vector<Object>& aObjectList)
+{
+	std::vector<Material> materials;
+	LoadMaterials(materials);
+
+	Assimp::Importer importer;
+	std::string filePath = "assets/sponza.obj";
+	const aiScene* scene = importer.ReadFile(filePath, aiProcess_CalcTangentSpace |
+		aiProcess_Triangulate |
+		aiProcess_JoinIdenticalVertices |
+		aiProcess_SortByPType);
+
+	aObjectList.reserve(scene->mNumMeshes);
+
+	for (size_t meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++)
+	{
+		Object& object = aObjectList.emplace_back();
+		Model& model = object.Model;
+		aiMesh* mesh = scene->mMeshes[meshIndex];
+
+		object.Material = materials[mesh->mMaterialIndex - 1];
+
+		model.VertexList.reserve(mesh->mNumVertices);
+
+		for (unsigned i = 0; i < mesh->mNumVertices; i++)
+		{
+			Vertex& newVertex = model.VertexList.emplace_back();
+
+			const auto& aiVertexPos = mesh->mVertices[i];
+			newVertex.Position = Vector4(aiVertexPos.x, aiVertexPos.y, aiVertexPos.z, 1.0f);
+
+			const auto& aiVertexNormal = mesh->mNormals[i];
+			newVertex.Normals = Vector3(aiVertexNormal.x, aiVertexNormal.y, aiVertexNormal.z);
+
+			const auto& aiVertexTangent = mesh->mTangents[i];
+			newVertex.Tangents = Vector3(aiVertexTangent.x, aiVertexTangent.y, aiVertexTangent.z);
+
+			if (mesh->mTextureCoords[0] != nullptr)
+			{
+				const auto& aiTexCoords = mesh->mTextureCoords[0][i];
+				newVertex.UV = Vector2(aiTexCoords.x, 1.0f - aiTexCoords.y);
+			}
+
+			if (mesh->mColors[0] != nullptr)
+			{
+				const auto& aiVertexColor = mesh->mColors[0][i];
+				newVertex.Color = Vector4(aiVertexColor.r, aiVertexColor.g, aiVertexColor.b, aiVertexColor.a);
+			}
+		}
+
+		model.IndexList.reserve(mesh->mNumFaces * 3);
+
+		for (unsigned faceIdx = 0; faceIdx < mesh->mNumFaces; faceIdx++)
+		{
+			const auto& face = mesh->mFaces[faceIdx];
+			for (unsigned i = 0; i < face.mNumIndices; i++)
+			{
+				model.IndexList.emplace_back(face.mIndices[i]);
+			}
+		}
+	}
 }

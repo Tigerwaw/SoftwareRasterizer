@@ -164,7 +164,8 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 				weights.y /= sum;
 				weights.z /= sum;
 
-				assert(weights.x >= 0.0f && weights.x <= 1.0f && weights.y >= 0.0f && weights.y <= 1.0f && weights.z >= 0.0f && weights.z <= 1.0f);
+				if (weights.x < 0.0f || weights.x > 1.0f || weights.y < 0.0f || weights.y > 1.0f || weights.z < 0.0f || weights.z > 1.0f)
+					continue;
 
 				float pixelDepth = vertexScreenDepth[0] * weights.x + vertexScreenDepth[1] * weights.y + vertexScreenDepth[2] * weights.z;
 				if (pixelDepth >= myRenderTarget->Depth[currentPixelIndex])
@@ -222,28 +223,32 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	Vector3 halfDir = lightDir + cameraDir;
 	halfDir.Normalize();
 
-	Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->Sample(aPixelInput.UV);
-	Vector3 calculatedNormals = {};
-	calculatedNormals.x = (normalMap.x - 0.5f) * 2.0f;
-	calculatedNormals.y = (normalMap.y - 0.5f) * 2.0f;
-	calculatedNormals.z = sqrt(1 - std::clamp((calculatedNormals.x * calculatedNormals.x + calculatedNormals.y * calculatedNormals.y), 0.0f, 1.0f));
+	Vector3 calculatedNormals = aPixelInput.Normals;
 	calculatedNormals.Normalize();
+	if (myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->GetSize() > 0)
+	{
+		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->Sample(aPixelInput.UV);
+		calculatedNormals.x = (normalMap.x - 0.5f) * 2.0f;
+		calculatedNormals.y = (normalMap.y - 0.5f) * 2.0f;
+		calculatedNormals.z = sqrt(1 - std::clamp((calculatedNormals.x * calculatedNormals.x + calculatedNormals.y * calculatedNormals.y), 0.0f, 1.0f));
+		calculatedNormals.Normalize();
 
-	Vector3 normalizedTangents = aPixelInput.Tangents;
-	normalizedTangents.Normalize();
-	Vector3 normalizedBinormals = aPixelInput.Binormals;
-	normalizedBinormals.Normalize();
-	Vector3 normalizedNormals = aPixelInput.Normals;
-	normalizedNormals.Normalize();
-	Vector4 r01(normalizedTangents.x, normalizedTangents.y, normalizedTangents.z, 0.0f);
-	Vector4 r02(normalizedBinormals.x, normalizedBinormals.y, normalizedBinormals.z, 0.0f);
-	Vector4 r03(normalizedNormals.x, normalizedNormals.y, normalizedNormals.z, 0.0f);
-	Vector4 r04(0.0f, 0.0f, 0.0f, 0.0f);
-	Matrix TBN(r01, r02, r03, r04);
+		Vector3 normalizedTangents = aPixelInput.Tangents;
+		normalizedTangents.Normalize();
+		Vector3 normalizedBinormals = aPixelInput.Binormals;
+		normalizedBinormals.Normalize();
+		Vector3 normalizedNormals = aPixelInput.Normals;
+		normalizedNormals.Normalize();
+		Vector4 r01(normalizedTangents.x, normalizedTangents.y, normalizedTangents.z, 0.0f);
+		Vector4 r02(normalizedBinormals.x, normalizedBinormals.y, normalizedBinormals.z, 0.0f);
+		Vector4 r03(normalizedNormals.x, normalizedNormals.y, normalizedNormals.z, 0.0f);
+		Vector4 r04(0.0f, 0.0f, 0.0f, 0.0f);
+		Matrix TBN(r01, r02, r03, r04);
 
-	Vector4 normals = { calculatedNormals.x, calculatedNormals.y, calculatedNormals.z, 0.0f };
-	calculatedNormals = Vector3::TransformNormal(calculatedNormals, TBN);
-	calculatedNormals.Normalize();
+		Vector4 normals = { calculatedNormals.x, calculatedNormals.y, calculatedNormals.z, 0.0f };
+		calculatedNormals = Vector3::TransformNormal(calculatedNormals, TBN);
+		calculatedNormals.Normalize();
+	}
 
 	float specAngle = std::fmax(calculatedNormals.Dot(halfDir), 0.0f);
 	float specularIntensity = pow(specAngle, 16.0f);

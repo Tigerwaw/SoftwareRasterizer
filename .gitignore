@@ -3,7 +3,7 @@
 Software.4db416b3
 
 # Compiled Object files
-*.obj
+#*.obj
 *.bmp
 
 # Compiled Dynamic libraries
@@ -15,3 +15,6 @@ Software.4db416b3
 # Executables
 *.exe
 *.pdb
+
+!Assets/**
+!assimp-vc143-mt.pdb

@@ -80,6 +80,7 @@ struct Material
 		Normal = 1
 	};
 
+	std::string Name;
 	Texture DiffuseTexture;
 	Texture NormalTexture;
 };
