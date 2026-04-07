@@ -314,6 +314,7 @@ static void RenderSponza()
 	renderer.SetRenderTarget(&renderTarget);
 	renderer.SetShaderBuffer(&shaderBuffer);
 
+	int index = 1;
 	for (auto& object : objects)
 	{
 		shaderBuffer.ObjectToWorld = object.WorldTransform;
@@ -322,6 +323,8 @@ static void RenderSponza()
 		renderer.SetVertexBuffer(object.Model.VertexList);
 		renderer.SetIndexBuffer(object.Model.IndexList);
 		renderer.Render();
+		std::cout << "Rendered object " << std::to_string(index) << " / " << std::to_string(objects.size()) << std::endl;
+		index++;
 	}
 	
 	WriteDataToBMPFile(std::filesystem::path("render.bmp"), renderTarget);

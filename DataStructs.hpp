@@ -28,16 +28,43 @@ struct Texture
 
 	Vector4 Sample(Vector2 aUVCoordinates) const
 	{
-		unsigned x = static_cast<unsigned>(aUVCoordinates.x * Width);
-		unsigned y = static_cast<unsigned>(aUVCoordinates.y * Height);
-		x = x % Width;
-		y = y % Height;
+		DirectX::XMINT2 pixelCoords = {};
+		pixelCoords.x = static_cast<int32_t>(aUVCoordinates.x * Width);
+		pixelCoords.y = static_cast<int32_t>(aUVCoordinates.y * Height);
+		pixelCoords.x = pixelCoords.x % Width;
+		pixelCoords.y = pixelCoords.y % Height;
 
-		unsigned pixelIndex = x + Width * y;
+		unsigned pixelIndex = GetPixelIndex(pixelCoords);
 
 		assert(pixelIndex >= 0 && pixelIndex < TextureData.size());
 
 		return TextureData[pixelIndex];
+	}
+
+	Vector4 BilinearSample(Vector2 aUVCoordinates) const
+	{
+		DirectX::XMINT2 pixelCoords = {};
+		pixelCoords.x = static_cast<int32_t>(aUVCoordinates.x * Width);
+		pixelCoords.y = static_cast<int32_t>(aUVCoordinates.y * Height);
+		pixelCoords.x = pixelCoords.x % Width;
+		pixelCoords.y = pixelCoords.y % Height;
+
+		
+		int32_t s = 1;
+		unsigned mainSampleIndex = GetPixelIndex(pixelCoords);
+		unsigned leftSampleIndex = GetPixelIndex({ pixelCoords.x - s, pixelCoords.y });
+		unsigned rightSampleIndex = GetPixelIndex({ pixelCoords.x + s, pixelCoords.y });
+		unsigned aboveSampleIndex = GetPixelIndex({ pixelCoords.x, pixelCoords.y - s });
+		unsigned belowSampleIndex = GetPixelIndex({ pixelCoords.x, pixelCoords.y + s });
+
+		Vector4 mainSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
+		Vector4 leftSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
+		Vector4 rightSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
+		Vector4 aboveSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
+		Vector4 belowSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
+		Vector4 avgSample = mainSample + leftSample + rightSample + aboveSample + belowSample;
+
+		return avgSample;
 	}
 };
 
