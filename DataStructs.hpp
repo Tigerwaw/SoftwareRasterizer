@@ -43,29 +43,47 @@ struct Texture
 
 	Vector4 BilinearSample(Vector2 aUVCoordinates) const
 	{
+		float texelPosX = aUVCoordinates.x * (Width - 1);
+		float texelPosY = aUVCoordinates.y * (Height - 1);
+
+		int leftTexelX = static_cast<int>(std::floorf(texelPosX));
+		int topTexelY = static_cast<int>(std::floorf(texelPosY));
+
+		int rightTexelX = std::clamp(leftTexelX + 1, 0, static_cast<int>(Width - 1));
+		int bottomTexelY = std::clamp(topTexelY + 1, 0, static_cast<int>(Height - 1));
+
+		float fractionX = texelPosX - static_cast<float>(leftTexelX);
+		float fractionY = texelPosY - static_cast<float>(topTexelY);
+
 		DirectX::XMINT2 pixelCoords = {};
 		pixelCoords.x = static_cast<int32_t>(aUVCoordinates.x * Width);
 		pixelCoords.y = static_cast<int32_t>(aUVCoordinates.y * Height);
 		pixelCoords.x = pixelCoords.x % Width;
 		pixelCoords.y = pixelCoords.y % Height;
 
-		
-		int32_t s = 1;
-		unsigned mainSampleIndex = GetPixelIndex(pixelCoords);
-		unsigned leftSampleIndex = GetPixelIndex({ pixelCoords.x - s, pixelCoords.y });
-		unsigned rightSampleIndex = GetPixelIndex({ pixelCoords.x + s, pixelCoords.y });
-		unsigned aboveSampleIndex = GetPixelIndex({ pixelCoords.x, pixelCoords.y - s });
-		unsigned belowSampleIndex = GetPixelIndex({ pixelCoords.x, pixelCoords.y + s });
+		Vector4 topLeftSample = TextureData[GetPixelIndex({ leftTexelX, topTexelY })];
+		Vector4 topRightSample = TextureData[GetPixelIndex({ rightTexelX, topTexelY })];
+		Vector4 bottomLeftSample = TextureData[GetPixelIndex({ leftTexelX, bottomTexelY })];
+		Vector4 bottomRightSample = TextureData[GetPixelIndex({ rightTexelX, bottomTexelY })];
 
-		Vector4 mainSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
-		Vector4 leftSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
-		Vector4 rightSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
-		Vector4 aboveSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
-		Vector4 belowSample = TextureData[mainSampleIndex] * (1.0f / 5.0f);
-		Vector4 avgSample = mainSample + leftSample + rightSample + aboveSample + belowSample;
+		Vector4 interpolatedTopRow = DirectX::XMVectorLerp(topLeftSample, topRightSample, fractionX);
+		Vector4 interpolatedBottomRow = DirectX::XMVectorLerp(bottomLeftSample, bottomRightSample, fractionX);
 
-		return avgSample;
+		Vector4 interpolatedColor = DirectX::XMVectorLerp(interpolatedTopRow, interpolatedBottomRow, fractionY);
+
+		return interpolatedColor;
 	}
+
+	//Vector4 TrilinearSample(Vector2 aUVCoordinates, float aRHO) const
+	//{
+	//	int mipLevel0 = static_cast<int>(std::floorf(aLOD));
+	//	int mipLevel1 = std::clamp(mipLevel0 + 1, 0, MaxMipLevel);
+
+	//	float mipBlend = aLOD - mipLevel0;
+
+	//	Vector4 color0 = BilinearSample(aUVCoordinates);
+	//	Vector4 color1 = BilinearSample(aUVCoordinates);
+	//}
 };
 
 struct MipChainTexture
@@ -154,6 +172,7 @@ struct PixelShaderInput
 	Vector3 Normals;
 	Vector3 Tangents;
 	Vector3 Binormals;
+	float rho;
 };
 
 struct Model

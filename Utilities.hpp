@@ -46,6 +46,18 @@ static bool IsPointInsideTriangle(Vector2 aA, Vector2 aB, Vector2 aC, Vector2 aP
 	return true;
 }
 
+static void PerspectiveCorrectBarycentricWeights(Vector3 aWElements, Vector3& outWeights)
+{
+	outWeights.x *= 1.0f / aWElements.x;
+	outWeights.y *= 1.0f / aWElements.y;
+	outWeights.z *= 1.0f / aWElements.z;
+
+	float sum = outWeights.x + outWeights.y + outWeights.z;
+	outWeights.x /= sum;
+	outWeights.y /= sum;
+	outWeights.z /= sum;
+}
+
 static void CreateCubeModel(Model& aModel)
 {
 	Vector4 emptyColor = { 0.2f, 0.2f, 0.2f, 1.0f };

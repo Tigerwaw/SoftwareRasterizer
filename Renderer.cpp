@@ -114,6 +114,7 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 
 	Vector2 vertexScreenPos[3] = {};
 	float vertexScreenDepth[3] = {};
+	Vector3 wElements(aTriangle.Vertices[0].Position.w, aTriangle.Vertices[1].Position.w, aTriangle.Vertices[2].Position.w);
 
 	for (size_t i = 0; i < 3; i++)
 	{
@@ -155,14 +156,7 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 			Vector3 weights = {};
 			if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition, weights))
 			{
-				weights.x *= 1.0f / aTriangle.Vertices[0].Position.w;
-				weights.y *= 1.0f / aTriangle.Vertices[1].Position.w;
-				weights.z *= 1.0f / aTriangle.Vertices[2].Position.w;
-
-				float sum = weights.x + weights.y + weights.z;
-				weights.x /= sum;
-				weights.y /= sum;
-				weights.z /= sum;
+				PerspectiveCorrectBarycentricWeights(wElements, weights);
 
 				if (weights.x < 0.0f || weights.x > 1.0f || weights.y < 0.0f || weights.y > 1.0f || weights.z < 0.0f || weights.z > 1.0f)
 					continue;
@@ -174,6 +168,37 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 				myRenderTarget->Depth[currentPixelIndex] = pixelDepth;
 				PixelShaderInput& result = outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
 				result.Depth = pixelDepth;
+
+				Vector2 rightUVs = result.UV;
+				Vector3 rightWeights;
+				if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition + Vector2(1, 0), rightWeights))
+				{
+					PerspectiveCorrectBarycentricWeights(wElements, rightWeights);
+
+					rightUVs.x = aTriangle.Vertices[0].UV.x * rightWeights.x + aTriangle.Vertices[1].UV.x * rightWeights.y + aTriangle.Vertices[2].UV.x * rightWeights.z;
+					rightUVs.y = aTriangle.Vertices[0].UV.y * rightWeights.x + aTriangle.Vertices[1].UV.y * rightWeights.y + aTriangle.Vertices[2].UV.y * rightWeights.z;
+				}
+
+				Vector2 downUVs = result.UV;
+				Vector3 downWeights;
+				if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition + Vector2(0, 1), downWeights))
+				{
+					PerspectiveCorrectBarycentricWeights(wElements, downWeights);
+
+					downUVs.x = aTriangle.Vertices[0].UV.x * downWeights.x + aTriangle.Vertices[1].UV.x * downWeights.y + aTriangle.Vertices[2].UV.x * downWeights.z;
+					downUVs.y = aTriangle.Vertices[0].UV.y * downWeights.x + aTriangle.Vertices[1].UV.y * downWeights.y + aTriangle.Vertices[2].UV.y * downWeights.z;
+				}
+
+				float du_dx = rightUVs.x - result.UV.x;
+				float dv_dx = rightUVs.y - result.UV.y;
+
+				float du_dy = downUVs.x - result.UV.x;
+				float dv_dy = downUVs.y - result.UV.y;
+
+				float lenX = sqrtf(du_dx * du_dx + dv_dx * dv_dx);
+				float lenY = sqrtf(du_dy * du_dy + dv_dy * dv_dy);
+				float rho = std::max(lenX, lenY);
+				result.rho = rho;
 			}
 		}
 	}

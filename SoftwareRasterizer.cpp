@@ -332,11 +332,11 @@ static void RenderSponza()
 
 int main()
 {
-	//RenderStillObject();
+	RenderStillObject();
 	//RenderMultipleCubes(renderer, renderTarget, camera, object);
 	//RenderRotatingCube(renderer, renderTarget, camera, object);
 	//RenderRotatingCubes(renderer, renderTarget, camera, object);
-	RenderSponza();
+	//RenderSponza();
 
 	//std::cout << "Done" << std::endl;
 	//std::cin.get();
