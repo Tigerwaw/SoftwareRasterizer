@@ -32,8 +32,14 @@ static void RenderStillObject()
 	);
 
 	Object object;
-	LoadBMPFile("Assets/textures/spnza_bricks_a_diff.bmp", object.Material.DiffuseTexture);
-	LoadBMPFile("Assets/textures/spnza_bricks_a_ddn.bmp", object.Material.NormalTexture);
+
+	Texture diffuseTexture;
+	LoadBMPFile("Assets/textures/spnza_bricks_a_diff.bmp", diffuseTexture);
+	Texture normalTexture;
+	LoadBMPFile("Assets/textures/spnza_bricks_a_ddn.bmp", normalTexture);
+
+	CreateMipChain(diffuseTexture, object.Material.DiffuseTexture);
+	CreateMipChain(normalTexture, object.Material.NormalTexture);
 
 	object.WorldTransform = DirectX::XMMatrixAffineTransformation(
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
@@ -82,8 +88,14 @@ static void RenderMultipleCubes()
 	);
 
 	Object object;
-	LoadBMPFile("Assets/textures/spnza_bricks_a_diff.bmp", object.Material.DiffuseTexture);
-	LoadBMPFile("Assets/textures/spnza_bricks_a_ddn.bmp", object.Material.NormalTexture);
+
+	Texture diffuseTexture;
+	LoadBMPFile("Assets/textures/spnza_bricks_a_diff.bmp", diffuseTexture);
+	Texture normalTexture;
+	LoadBMPFile("Assets/textures/spnza_bricks_a_ddn.bmp", normalTexture);
+
+	CreateMipChain(diffuseTexture, object.Material.DiffuseTexture);
+	CreateMipChain(normalTexture, object.Material.NormalTexture);
 
 	object.WorldTransform = DirectX::XMMatrixAffineTransformation(
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
@@ -159,8 +171,14 @@ static void RenderRotatingCube()
 	);
 
 	Object object;
-	LoadBMPFile("Assets/textures/spnza_bricks_a_diff.bmp", object.Material.DiffuseTexture);
-	LoadBMPFile("Assets/textures/spnza_bricks_a_ddn.bmp", object.Material.NormalTexture);
+
+	Texture diffuseTexture;
+	LoadBMPFile("Assets/textures/spnza_bricks_a_diff.bmp", diffuseTexture);
+	Texture normalTexture;
+	LoadBMPFile("Assets/textures/spnza_bricks_a_ddn.bmp", normalTexture);
+
+	CreateMipChain(diffuseTexture, object.Material.DiffuseTexture);
+	CreateMipChain(normalTexture, object.Material.NormalTexture);
 
 	object.WorldTransform = DirectX::XMMatrixAffineTransformation(
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
@@ -224,8 +242,14 @@ static void RenderRotatingCubes()
 	);
 
 	Object object;
-	LoadBMPFile("Assets/textures/spnza_bricks_a_diff.bmp", object.Material.DiffuseTexture);
-	LoadBMPFile("Assets/textures/spnza_bricks_a_ddn.bmp", object.Material.NormalTexture);
+
+	Texture diffuseTexture;
+	LoadBMPFile("Assets/textures/spnza_bricks_a_diff.bmp", diffuseTexture);
+	Texture normalTexture;
+	LoadBMPFile("Assets/textures/spnza_bricks_a_ddn.bmp", normalTexture);
+
+	CreateMipChain(diffuseTexture, object.Material.DiffuseTexture);
+	CreateMipChain(normalTexture, object.Material.NormalTexture);
 
 	object.WorldTransform = DirectX::XMMatrixAffineTransformation(
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
@@ -332,11 +356,11 @@ static void RenderSponza()
 
 int main()
 {
-	RenderStillObject();
+	//RenderStillObject();
 	//RenderMultipleCubes(renderer, renderTarget, camera, object);
 	//RenderRotatingCube(renderer, renderTarget, camera, object);
 	//RenderRotatingCubes(renderer, renderTarget, camera, object);
-	//RenderSponza();
+	RenderSponza();
 
 	//std::cout << "Done" << std::endl;
 	//std::cin.get();

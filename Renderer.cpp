@@ -22,7 +22,7 @@ void Renderer::SetShaderBuffer(ShaderBuffer* aShaderBuffer)
 	myShaderBuffer = aShaderBuffer;
 }
 
-void Renderer::SetTextureOnSlot(Texture* aTexture, unsigned aSlot)
+void Renderer::SetTextureOnSlot(MipTexture* aTexture, unsigned aSlot)
 {
 	assert(aSlot >= 0 && aSlot < myTextureResources.size());
 	myTextureResources[aSlot] = aTexture;
@@ -189,16 +189,10 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 					downUVs.y = aTriangle.Vertices[0].UV.y * downWeights.x + aTriangle.Vertices[1].UV.y * downWeights.y + aTriangle.Vertices[2].UV.y * downWeights.z;
 				}
 
-				float du_dx = rightUVs.x - result.UV.x;
-				float dv_dx = rightUVs.y - result.UV.y;
-
-				float du_dy = downUVs.x - result.UV.x;
-				float dv_dy = downUVs.y - result.UV.y;
-
-				float lenX = sqrtf(du_dx * du_dx + dv_dx * dv_dx);
-				float lenY = sqrtf(du_dy * du_dy + dv_dy * dv_dy);
-				float rho = std::max(lenX, lenY);
-				result.rho = rho;
+				result.UVDerivatives.du_dx = rightUVs.x - result.UV.x;
+				result.UVDerivatives.dv_dx = rightUVs.y - result.UV.y;
+				result.UVDerivatives.du_dy = downUVs.x - result.UV.x;
+				result.UVDerivatives.dv_dy = downUVs.y - result.UV.y;
 			}
 		}
 	}
@@ -250,9 +244,9 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 
 	Vector3 calculatedNormals = aPixelInput.Normals;
 	calculatedNormals.Normalize();
-	if (myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->GetSize() > 0)
+	if (myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->IsEmpty() == false)
 	{
-		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->BilinearSample(aPixelInput.UV);
+		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->BilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
 		calculatedNormals.x = (normalMap.x - 0.5f) * 2.0f;
 		calculatedNormals.y = (normalMap.y - 0.5f) * 2.0f;
 		calculatedNormals.z = sqrt(1 - std::clamp((calculatedNormals.x * calculatedNormals.x + calculatedNormals.y * calculatedNormals.y), 0.0f, 1.0f));
@@ -280,7 +274,7 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 
 	Vector3 spec = specColor * specularIntensity;
 
-	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->BilinearSample(aPixelInput.UV);
+	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->BilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
 	Color color = diffuseMap + spec;
 	color.Saturate();
 

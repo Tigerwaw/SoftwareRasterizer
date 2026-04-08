@@ -7,7 +7,7 @@ class Renderer
 public:
 	void SetRenderTarget(RenderTarget* aRenderTarget);
 	void SetShaderBuffer(ShaderBuffer* aShaderBuffer);
-	void SetTextureOnSlot(Texture* aTexture, unsigned aSlot);
+	void SetTextureOnSlot(MipTexture* aTexture, unsigned aSlot);
 	void SetVertexBuffer(const std::vector<Vertex>& aVertexBuffer);
 	void SetIndexBuffer(const std::vector<unsigned>& aIndexBuffer);
 
@@ -23,7 +23,7 @@ private:
 private:
 	RenderTarget* myRenderTarget;
 	ShaderBuffer* myShaderBuffer;
-	std::array<Texture*, 8> myTextureResources;
+	std::array<MipTexture*, 8> myTextureResources;
 	std::vector<Vertex> myVertexBuffer;
 	std::vector<unsigned> myIndexBuffer;
 };

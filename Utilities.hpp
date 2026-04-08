@@ -423,24 +423,30 @@ static void Resample(const Texture& aSourceTexture, Texture& aDestinationTexture
 	}
 }
 
-static void CreateMipChain(const Texture& aSourceTexture, MipChainTexture& aMipChainTexture)
+static void CreateMipChain(const Texture& aSourceTexture, MipTexture& aMipTexture)
 {
-	assert(aSourceTexture.Width == aSourceTexture.Height);
+	assert(aSourceTexture.Height == static_cast<unsigned>(pow(2, log2(aSourceTexture.Height))));
 	assert(aSourceTexture.Width == static_cast<unsigned>(pow(2, log2(aSourceTexture.Width))));
 
-	for (unsigned i = aSourceTexture.Width; i != 0; i = static_cast<unsigned>(i * 0.5f))
+	unsigned width = aSourceTexture.Width;
+	unsigned height = aSourceTexture.Height;
+	while (width != 0 && height != 0)
 	{
 		Texture downSample;
-		downSample.Initialize(i, i);
+		downSample.Initialize(width, height);
 
-		Texture& blurred = aMipChainTexture.MipChain.emplace_back();
-		blurred.Initialize(i, i);
+		Texture& blurred = aMipTexture.MipChain.emplace_back();
+		blurred.Initialize(width, height);
 
 		Resample(aSourceTexture, downSample);
 		GaussianBlur(downSample, blurred);
+
+		width = static_cast<unsigned>(std::floorf(width * 0.5f));
+		height = static_cast<unsigned>(std::floorf(height * 0.5f));
 	}
 
-	aMipChainTexture.MipMaxLevel = static_cast<unsigned>(aMipChainTexture.MipChain.size() - 1);
+	aMipTexture.MipMaxLevel = static_cast<unsigned>(aMipTexture.MipChain.size() - 1);
+	std::cout << "Generated mip chain" << std::endl;
 }
 
 static int GetAppropriateMipLevel(float aDepth, int aMipMaxLevel)
@@ -485,7 +491,9 @@ static void LoadMaterials(std::vector<Material>& aMaterialList)
 		{
 			std::filesystem::path filePath = "Assets/" + GetMaterialParameter(line, keyword);
 			filePath.replace_extension("bmp");
-			LoadBMPFile(filePath.wstring().c_str(), aMaterialList.back().DiffuseTexture);
+			Texture tempTex;
+			LoadBMPFile(filePath.wstring().c_str(), tempTex);
+			CreateMipChain(tempTex, aMaterialList.back().DiffuseTexture);
 		}
 
 		keyword = "map_Disp";
@@ -493,7 +501,9 @@ static void LoadMaterials(std::vector<Material>& aMaterialList)
 		{
 			std::filesystem::path filePath = "assets/" + GetMaterialParameter(line, keyword);
 			filePath.replace_extension("bmp");
-			LoadBMPFile(filePath.wstring().c_str(), aMaterialList.back().NormalTexture);
+			Texture tempTex;
+			LoadBMPFile(filePath.wstring().c_str(), tempTex);
+			CreateMipChain(tempTex, aMaterialList.back().NormalTexture);
 		}
 	}
 

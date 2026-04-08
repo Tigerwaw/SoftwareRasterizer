@@ -6,7 +6,19 @@
 #include <filesystem>
 #include "SimpleMath.h"
 
+#include <windows.h>
+#undef min
+#undef max
+
 using namespace DirectX::SimpleMath;
+
+struct UV_Derivatives
+{
+	float du_dx;
+	float dv_dx;
+	float du_dy;
+	float dv_dy;
+};
 
 struct Texture
 {
@@ -18,6 +30,7 @@ struct Texture
 
 	DirectX::XMINT2 GetPixelCoordinates(unsigned i) const { return { static_cast<int32_t>(i % Width), static_cast<int32_t>(std::floor(i / Width)) }; }
 	unsigned GetSize() const { return Width * Height; }
+	bool IsEmpty() const { return TextureData.empty(); }
 
 	virtual void Initialize(unsigned aWidth, unsigned aHeight)
 	{
@@ -73,9 +86,46 @@ struct Texture
 
 		return interpolatedColor;
 	}
+};
 
-	//Vector4 TrilinearSample(Vector2 aUVCoordinates, float aRHO) const
+static float CalculateMipMapLOD(const UV_Derivatives& aDXDY, unsigned aTextureWidth, unsigned aTextureHeight, unsigned aMaxMipLevel)
+{
+	float du_dx_tex = aDXDY.du_dx * aTextureWidth;
+	float dv_dx_tex = aDXDY.dv_dx * aTextureHeight;
+	float du_dy_tex = aDXDY.du_dy * aTextureWidth;
+	float dv_dy_tex = aDXDY.dv_dy * aTextureHeight;
+
+	float lenX = sqrtf(du_dx_tex * du_dx_tex + dv_dx_tex * dv_dx_tex);
+	float lenY = sqrtf(du_dy_tex * du_dy_tex + dv_dy_tex * dv_dy_tex);
+	float rho = std::max(lenX, lenY);
+	float lod = log2f(rho);
+	lod = std::clamp(lod, 0.0f, static_cast<float>(aMaxMipLevel));
+	return lod;
+}
+
+struct MipTexture
+{
+	std::vector<Texture> MipChain;
+	unsigned MipMaxLevel;
+
+	bool IsEmpty() const { return MipChain.empty(); }
+
+	Vector4 Sample(Vector2 aUVCoordinates, const UV_Derivatives& aDXDY) const
+	{
+		float lod = CalculateMipMapLOD(aDXDY, MipChain[0].Width, MipChain[0].Height, MipMaxLevel);
+		return MipChain[static_cast<int>(std::floorf(lod))].Sample(aUVCoordinates);
+	}
+
+	Vector4 BilinearSample(Vector2 aUVCoordinates, const UV_Derivatives& aDXDY) const
+	{
+		float lod = CalculateMipMapLOD(aDXDY, MipChain[0].Width, MipChain[0].Height, MipMaxLevel);
+		return MipChain[static_cast<int>(std::floorf(lod))].BilinearSample(aUVCoordinates);
+	}
+
+	//Vector4 TrilinearSample(Vector2 aUVCoordinates, const UV_Derivatives& aDXDY) const
 	//{
+	//	float lod = CalculateMipMapLOD(aDXDY, MipChain[0].Width, MipChain[0].Height, MipMaxLevel);
+
 	//	int mipLevel0 = static_cast<int>(std::floorf(aLOD));
 	//	int mipLevel1 = std::clamp(mipLevel0 + 1, 0, MaxMipLevel);
 
@@ -84,19 +134,6 @@ struct Texture
 	//	Vector4 color0 = BilinearSample(aUVCoordinates);
 	//	Vector4 color1 = BilinearSample(aUVCoordinates);
 	//}
-};
-
-struct MipChainTexture
-{
-	std::vector<Texture> MipChain;
-	unsigned MipMaxLevel;
-
-	Vector4 SampleLevel(Vector2 aUVCoordinates, unsigned aLevel) const
-	{
-		assert(aLevel >= 0 && aLevel < MipMaxLevel);
-
-		return MipChain[aLevel].Sample(aUVCoordinates);
-	}
 };
 
 struct RenderTarget : public Texture
@@ -126,8 +163,8 @@ struct Material
 	};
 
 	std::string Name;
-	Texture DiffuseTexture;
-	Texture NormalTexture;
+	MipTexture DiffuseTexture;
+	MipTexture NormalTexture;
 };
 
 struct Vertex
@@ -172,7 +209,7 @@ struct PixelShaderInput
 	Vector3 Normals;
 	Vector3 Tangents;
 	Vector3 Binormals;
-	float rho;
+	UV_Derivatives UVDerivatives;
 };
 
 struct Model
