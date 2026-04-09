@@ -153,7 +153,7 @@ struct RenderTarget : public Texture
 	void Initialize(unsigned aWidth, unsigned aHeight) override
 	{
 		Texture::Initialize(aWidth, aHeight);
-		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
+		Depth.assign(static_cast<size_t>(Width * Height), 1.0f);
 	}
 
 	void ClearRenderTarget()
@@ -185,6 +185,7 @@ struct Vertex
 	Vector3 Normals;
 	Vector3 Tangents;
 	Vector3 Binormals;
+	float ViewZ;
 
 	Vertex() = default;
 	Vertex(Vector4 aPosition, Vector4 aColor, Vector2 aUV, Vector3 aNormals, Vector3 aTangents) :
@@ -207,12 +208,17 @@ struct ShaderBuffer
 	Matrix ObjectToWorld;
 	Matrix WorldToViewSpace;
 	Matrix ViewToProjectionSpace;
+	float NearPlane;
+	float FarPlane;
+	Vector3 LightDir;
+	Vector3 CameraDir;
 };
 
 struct PixelShaderInput
 {
 	unsigned RenderTargetIndex;
 	float Depth;
+	float VisualDepth;
 	Vector2 Position;
 	Vector4 Color;
 	Vector2 UV;
@@ -239,6 +245,8 @@ struct Camera
 {
 	unsigned Height;
 	unsigned Width;
+	float NearPlane;
+	float FarPlane;
 	Matrix WorldTransform;
 	Matrix ProjectionMatrix;
 };

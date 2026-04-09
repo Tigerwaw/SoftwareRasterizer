@@ -320,10 +320,12 @@ static void RenderSponza()
 	Camera camera;
 	camera.Width = renderTarget.Width;
 	camera.Height = renderTarget.Height;
+	camera.NearPlane = 1.0f;
+	camera.FarPlane = 3000.0f;
 	camera.ProjectionMatrix = DirectX::XMMatrixPerspectiveFovLH(
 		DirectX::XMConvertToRadians(59.0f),
 		static_cast<float>(renderTarget.Width) / static_cast<float>(renderTarget.Height),
-		0.1f, 10000.0f);
+		camera.NearPlane, camera.FarPlane);
 	camera.WorldTransform = DirectX::XMMatrixAffineTransformation(
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 0.0f, 0.0f, 0.0f, 1.0f },
@@ -334,6 +336,12 @@ static void RenderSponza()
 	ShaderBuffer shaderBuffer = {};
 	camera.WorldTransform.Invert(shaderBuffer.WorldToViewSpace);
 	shaderBuffer.ViewToProjectionSpace = camera.ProjectionMatrix;
+	shaderBuffer.NearPlane = camera.NearPlane;
+	shaderBuffer.FarPlane = camera.FarPlane;
+	shaderBuffer.LightDir = { 0.3f, 1.0f, -0.8f };
+	shaderBuffer.CameraDir = { 0.0f, 0.0f, 1.0f };
+	shaderBuffer.LightDir.Normalize();
+	shaderBuffer.CameraDir.Normalize();
 
 	renderer.SetRenderTarget(&renderTarget);
 	renderer.SetShaderBuffer(&shaderBuffer);
@@ -361,7 +369,4 @@ int main()
 	//RenderRotatingCube(renderer, renderTarget, camera, object);
 	//RenderRotatingCubes(renderer, renderTarget, camera, object);
 	RenderSponza();
-
-	//std::cout << "Done" << std::endl;
-	//std::cin.get();
 }

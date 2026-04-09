@@ -238,12 +238,6 @@ static void CreateCubeModel(Model& aModel)
 		20,21,22,
 		20,22,23
 	};
-
-	//srand(static_cast<unsigned>(time(NULL)));
-	//for (auto& vertex : aModel.vertexList)
-	//{
-	//	vertex.color = { static_cast<float>(rand()) / RAND_MAX + 1.0f, static_cast<float>(rand()) / RAND_MAX + 1.0f, static_cast<float>(rand()) / RAND_MAX + 1.0f, 1.0f };
-	//}
 }
 
 static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTexture)

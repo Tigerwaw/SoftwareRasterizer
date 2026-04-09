@@ -92,6 +92,7 @@ Vertex Renderer::VertexShader(const Vertex& aVertex)
 
 	Vertex newVertex = aVertex;
 	newVertex.Position = vertexClipPos;
+	newVertex.ViewZ = vertexViewPos.z;
 
 	Vector3 worldNormals = Vector3::TransformNormal(aVertex.Normals, shaderBuffer.ObjectToWorld);
 	newVertex.Normals = worldNormals;
@@ -140,6 +141,9 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 	int boundsStartYPixel = std::clamp(static_cast<int>(std::floor(minY)), int(0), static_cast<int>(renderTarget.Height - 1));
 	int boundsEndYPixel = std::clamp(static_cast<int>(std::ceil(maxY)), int(0), static_cast<int>(renderTarget.Height - 1));
 
+	float nearPlane = myShaderBuffer->NearPlane;
+	float farPlane = myShaderBuffer->FarPlane;
+
 	assert(boundsStartXPixel <= boundsEndXPixel);
 	assert(boundsStartYPixel <= boundsEndYPixel);
 
@@ -156,18 +160,24 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 			Vector3 weights = {};
 			if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition, weights))
 			{
+				Vector3 linearWeights = weights;
 				PerspectiveCorrectBarycentricWeights(wElements, weights);
 
 				if (weights.x < 0.0f || weights.x > 1.0f || weights.y < 0.0f || weights.y > 1.0f || weights.z < 0.0f || weights.z > 1.0f)
 					continue;
-
-				float pixelDepth = vertexScreenDepth[0] * weights.x + vertexScreenDepth[1] * weights.y + vertexScreenDepth[2] * weights.z;
-				if (pixelDepth >= myRenderTarget->Depth[currentPixelIndex])
+				
+				float pixelDepth = vertexScreenDepth[0] * linearWeights.x + vertexScreenDepth[1] * linearWeights.y + vertexScreenDepth[2] * linearWeights.z;
+				if (pixelDepth > myRenderTarget->Depth[currentPixelIndex])
 					continue;
 
 				myRenderTarget->Depth[currentPixelIndex] = pixelDepth;
 				PixelShaderInput& result = outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
 				result.Depth = pixelDepth;
+
+				float pixelViewZ = aTriangle.Vertices[0].ViewZ * linearWeights.x + aTriangle.Vertices[1].ViewZ * linearWeights.y + aTriangle.Vertices[2].ViewZ * linearWeights.z;
+				float d = (abs(pixelViewZ) - nearPlane) / (farPlane - nearPlane);
+				float linearDepth = powf(1.0f - d, 0.5f);
+				result.VisualDepth = linearDepth;
 
 				Vector2 rightUVs = result.UV;
 				Vector3 rightWeights;
@@ -234,12 +244,7 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 	const Vector3 specColor = Vector3(1.0f, 1.0f, 1.0f);
 
-	Vector3 lightDir = { 1.0f, -1.0f, -1.0f };
-	lightDir.Normalize();
-
-	Vector3 cameraDir = { 0.0f, 0.0f, -1.0f };
-	cameraDir.Normalize();
-	Vector3 halfDir = lightDir + cameraDir;
+	Vector3 halfDir = myShaderBuffer->LightDir + myShaderBuffer->CameraDir;
 	halfDir.Normalize();
 
 	Vector3 calculatedNormals = aPixelInput.Normals;
