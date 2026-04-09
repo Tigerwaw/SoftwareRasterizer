@@ -441,8 +441,8 @@ static void Resample(const Texture& aSourceTexture, Texture& aDestinationTexture
 
 static void CreateMipChain(const Texture& aSourceTexture, MipTexture& aMipTexture)
 {
-	assert(aSourceTexture.Height == static_cast<unsigned>(pow(2, log2(aSourceTexture.Height))));
 	assert(aSourceTexture.Width == static_cast<unsigned>(pow(2, log2(aSourceTexture.Width))));
+	assert(aSourceTexture.Height == static_cast<unsigned>(pow(2, log2(aSourceTexture.Height))));
 
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 

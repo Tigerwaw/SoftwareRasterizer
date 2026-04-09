@@ -110,16 +110,26 @@ struct MipTexture
 
 	bool IsEmpty() const { return MipChain.empty(); }
 
+	Vector4 SampleLevel(Vector2 aUVCoordinates, int aLODLevel) const
+	{
+		return MipChain[aLODLevel].Sample(aUVCoordinates);
+	}
+
 	Vector4 Sample(Vector2 aUVCoordinates, const UV_Derivatives& aDXDY) const
 	{
 		float lod = CalculateMipMapLOD(aDXDY, MipChain[0].Width, MipChain[0].Height, MipMaxLevel);
-		return MipChain[static_cast<int>(std::floorf(lod))].Sample(aUVCoordinates);
+		return SampleLevel(aUVCoordinates, static_cast<int>(std::floorf(lod)));
+	}
+
+	Vector4 BilinearSampleLevel(Vector2 aUVCoordinates, int aLODLevel) const
+	{
+		return MipChain[aLODLevel].BilinearSample(aUVCoordinates);
 	}
 
 	Vector4 BilinearSample(Vector2 aUVCoordinates, const UV_Derivatives& aDXDY) const
 	{
 		float lod = CalculateMipMapLOD(aDXDY, MipChain[0].Width, MipChain[0].Height, MipMaxLevel);
-		return MipChain[static_cast<int>(std::floorf(lod))].BilinearSample(aUVCoordinates);
+		return BilinearSampleLevel(aUVCoordinates, static_cast<int>(std::floorf(lod)));
 	}
 
 	//Vector4 TrilinearSample(Vector2 aUVCoordinates, const UV_Derivatives& aDXDY) const

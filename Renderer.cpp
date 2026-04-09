@@ -246,7 +246,8 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	calculatedNormals.Normalize();
 	if (myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->IsEmpty() == false)
 	{
-		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->BilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+		//Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->BilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->Sample(aPixelInput.UV, aPixelInput.UVDerivatives);
 		calculatedNormals.x = (normalMap.x - 0.5f) * 2.0f;
 		calculatedNormals.y = (normalMap.y - 0.5f) * 2.0f;
 		calculatedNormals.z = sqrt(1 - std::clamp((calculatedNormals.x * calculatedNormals.x + calculatedNormals.y * calculatedNormals.y), 0.0f, 1.0f));
@@ -274,7 +275,8 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 
 	Vector3 spec = specColor * specularIntensity;
 
-	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->BilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+	//Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->BilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->Sample(aPixelInput.UV, aPixelInput.UVDerivatives);
 	Color color = diffuseMap + spec;
 	color.Saturate();
 
