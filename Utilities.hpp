@@ -5,9 +5,13 @@
 #include <iostream>
 #include <fstream>
 
-#include <windows.h>
+#include <Windows.h>
 #undef min
 #undef max
+#ifndef _RETAIL
+#define USE_PIX
+#endif
+#include "WinPixEventRuntime/pix3.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/mesh.h>
@@ -28,6 +32,8 @@ static float Edge(Vector2 aA, Vector2 aB, Vector2 aC)
 
 static bool IsPointInsideTriangle(Vector2 aA, Vector2 aB, Vector2 aC, Vector2 aP, Vector3& outWeights)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	float area = Edge(aA, aB, aC);
 
 	if (area <= 0.0f)
@@ -48,6 +54,8 @@ static bool IsPointInsideTriangle(Vector2 aA, Vector2 aB, Vector2 aC, Vector2 aP
 
 static void PerspectiveCorrectBarycentricWeights(Vector3 aWElements, Vector3& outWeights)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	outWeights.x *= 1.0f / aWElements.x;
 	outWeights.y *= 1.0f / aWElements.y;
 	outWeights.z *= 1.0f / aWElements.z;
@@ -240,6 +248,8 @@ static void CreateCubeModel(Model& aModel)
 
 static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTexture)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	std::ifstream file(aFilePath, std::ios::binary);
 	if (file) 
 	{
@@ -297,6 +307,8 @@ static void LoadBMPFile(const std::filesystem::path& aFilePath, Texture& aTextur
 
 static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Texture& aTexture)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	unsigned width = aTexture.Width;
 	unsigned height = aTexture.Height;
 
@@ -372,6 +384,8 @@ static void GaussianBlur(const Texture& aSourceTexture, Texture& aDestinationTex
 {
 	assert(aSourceTexture.Width == aDestinationTexture.Width && aSourceTexture.Height == aDestinationTexture.Height);
 
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	for (int i = 0; i < static_cast<int>(aSourceTexture.GetSize()); i++)
 	{
 		DirectX::XMINT2 mainSampleCoords = aSourceTexture.GetPixelCoordinates(i);
@@ -414,6 +428,8 @@ static void GaussianBlur(const Texture& aSourceTexture, Texture& aDestinationTex
 
 static void Resample(const Texture& aSourceTexture, Texture& aDestinationTexture)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	for (int i = 0; i < static_cast<int>(aDestinationTexture.GetSize()); i++)
 	{
 		DirectX::XMINT2 pixelCoords = aDestinationTexture.GetPixelCoordinates(i);
@@ -427,6 +443,8 @@ static void CreateMipChain(const Texture& aSourceTexture, MipTexture& aMipTextur
 {
 	assert(aSourceTexture.Height == static_cast<unsigned>(pow(2, log2(aSourceTexture.Height))));
 	assert(aSourceTexture.Width == static_cast<unsigned>(pow(2, log2(aSourceTexture.Width))));
+
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
 	unsigned width = aSourceTexture.Width;
 	unsigned height = aSourceTexture.Height;
@@ -472,6 +490,8 @@ static std::wstring ConvertStringToWString(const std::string& aString)
 
 static void LoadMaterials(std::vector<Material>& aMaterialList)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	std::ifstream file("Assets/sponza.mtl");
 	std::string line;
 	while (std::getline(file, line))
@@ -512,6 +532,8 @@ static void LoadMaterials(std::vector<Material>& aMaterialList)
 
 static void LoadObjects(std::vector<Object>& aObjectList)
 {
+	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+
 	std::vector<Material> materials;
 	LoadMaterials(materials);
 
