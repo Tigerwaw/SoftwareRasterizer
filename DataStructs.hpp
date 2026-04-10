@@ -184,8 +184,6 @@ struct Vertex
 	Vector2 UV;
 	Vector3 Normals;
 	Vector3 Tangents;
-	Vector3 Binormals;
-	float ViewZ;
 
 	Vertex() = default;
 	Vertex(Vector4 aPosition, Vector4 aColor, Vector2 aUV, Vector3 aNormals, Vector3 aTangents) :
@@ -198,9 +196,30 @@ struct Vertex
 	}
 };
 
+struct VertexShaderOutput
+{
+	Vector4 WorldPosition;
+	Vector4 ViewPosition;
+	Vector4 ClipPosition;
+	Vector4 Color;
+	Vector2 UV;
+	Vector3 Normals;
+	Vector3 Tangents;
+	Vector3 Binormals;
+};
+
+struct RasterizationPoint
+{
+	Vector2 ScreenPos;
+	float ScreenDepth;
+	float ViewDepth;
+	float W;
+};
+
 struct TrianglePrimitive
 {
-	Vertex Vertices[3] = {};
+	VertexShaderOutput Vertices[3] = {};
+	RasterizationPoint RasterizationPoints[3] = {};
 };
 
 struct ShaderBuffer

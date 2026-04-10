@@ -49,25 +49,31 @@ void Renderer::Render()
 
 	for (unsigned index = 0; index < static_cast<unsigned>(myIndexBuffer.size()); index += 3)
 	{
-		TrianglePrimitive prim;
-		prim.Vertices[0] = myVertexBuffer[myIndexBuffer[index + 0]];
-		prim.Vertices[1] = myVertexBuffer[myIndexBuffer[index + 1]];
-		prim.Vertices[2] = myVertexBuffer[myIndexBuffer[index + 2]];
-		DrawTriangle(prim);
+		std::array<Vertex, 3> vertices = {
+			myVertexBuffer[myIndexBuffer[index + 0]],
+			myVertexBuffer[myIndexBuffer[index + 1]],
+			myVertexBuffer[myIndexBuffer[index + 2]] };
+		DrawTriangle(vertices);
 	}
 }
 
-void Renderer::DrawTriangle(const TrianglePrimitive& aTriangle)
+void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 {
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
 	TrianglePrimitive prim;
-	prim.Vertices[0] = VertexShader(aTriangle.Vertices[0]);
-	prim.Vertices[1] = VertexShader(aTriangle.Vertices[1]);
-	prim.Vertices[2] = VertexShader(aTriangle.Vertices[2]);
+	prim.Vertices[0] = VertexShader(aVertices[0]);
+	prim.Vertices[1] = VertexShader(aVertices[1]);
+	prim.Vertices[2] = VertexShader(aVertices[2]);
+	prim.RasterizationPoints[0] = CreateRasterizationPoint(prim.Vertices[0]);
+	prim.RasterizationPoints[1] = CreateRasterizationPoint(prim.Vertices[1]);
+	prim.RasterizationPoints[2] = CreateRasterizationPoint(prim.Vertices[2]);
 
 	std::vector<PixelShaderInput> pixelList;
+	//int pixelAmount = RasterizeTriangle(prim, pixelList);
 	RasterizeTriangle(prim, pixelList);
+
+	//std::vector<PixelShaderInput> pixelRange(pixelList.begin(), pixelList.begin() + pixelAmount);
 
 	if (pixelList.empty())
 		return;
@@ -79,7 +85,7 @@ void Renderer::DrawTriangle(const TrianglePrimitive& aTriangle)
 	}
 }
 
-Vertex Renderer::VertexShader(const Vertex& aVertex)
+VertexShaderOutput Renderer::VertexShader(const Vertex& aVertex)
 {
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
@@ -90,20 +96,44 @@ Vertex Renderer::VertexShader(const Vertex& aVertex)
 	Vector4 vertexViewPos = Vector4::Transform(vertexWorldPos, shaderBuffer.WorldToViewSpace);
 	Vector4 vertexClipPos = Vector4::Transform(vertexViewPos, shaderBuffer.ViewToProjectionSpace);
 
-	Vertex newVertex = aVertex;
-	newVertex.Position = vertexClipPos;
-	newVertex.ViewZ = vertexViewPos.z;
+	VertexShaderOutput output;
+
+	output.ClipPosition = vertexClipPos;
+	output.WorldPosition = vertexWorldPos;
+	output.ViewPosition = vertexViewPos;
+	output.Color = aVertex.Color;
+	output.UV = aVertex.UV;
 
 	Vector3 worldNormals = Vector3::TransformNormal(aVertex.Normals, shaderBuffer.ObjectToWorld);
-	newVertex.Normals = worldNormals;
+	output.Normals = worldNormals;
 
 	Vector3 worldTangents = Vector3::TransformNormal(aVertex.Tangents, shaderBuffer.ObjectToWorld);
-	newVertex.Tangents = worldTangents;
+	output.Tangents = worldTangents;
 
 	Vector3 worldBinormals = worldNormals.Cross(worldTangents);
-	newVertex.Binormals = worldBinormals;
+	output.Binormals = worldBinormals;
 
-	return newVertex;
+	return output;
+}
+
+RasterizationPoint Renderer::CreateRasterizationPoint(const VertexShaderOutput& aVertexShaderOutput)
+{
+	float invW = 1.0f / aVertexShaderOutput.ClipPosition.w;
+
+	RasterizationPoint output;
+	output.ScreenPos.x = aVertexShaderOutput.ClipPosition.x * invW;
+	output.ScreenPos.x = (output.ScreenPos.x + 1.0f) * 0.5f;
+	output.ScreenPos.x *= myRenderTarget->Width;
+	output.ScreenPos.y = aVertexShaderOutput.ClipPosition.y * invW;
+	output.ScreenPos.y = (output.ScreenPos.y + 1.0f) * 0.5f;
+	output.ScreenPos.y *= myRenderTarget->Height;
+
+	output.ScreenDepth = aVertexShaderOutput.ClipPosition.z * invW;
+	output.ScreenDepth = (output.ScreenDepth + 1.0f) * 0.5f;
+	output.ViewDepth = aVertexShaderOutput.ViewPosition.z;
+	output.W = aVertexShaderOutput.ClipPosition.w;
+
+	return output;
 }
 
 void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList)
@@ -113,36 +143,15 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 	assert(myRenderTarget != nullptr);
 	auto& renderTarget = *myRenderTarget;
 
-	Vector2 vertexScreenPos[3] = {};
-	float vertexScreenDepth[3] = {};
-	Vector3 wElements(aTriangle.Vertices[0].Position.w, aTriangle.Vertices[1].Position.w, aTriangle.Vertices[2].Position.w);
-
-	for (size_t i = 0; i < 3; i++)
-	{
-		Vector4 vertexNDCPos = aTriangle.Vertices[i].Position;
-		vertexNDCPos.x /= vertexNDCPos.w;
-		vertexNDCPos.y /= vertexNDCPos.w;
-		vertexNDCPos.z /= vertexNDCPos.w;
-
-		vertexNDCPos.x = (vertexNDCPos.x + 1.0f) * 0.5f;
-		vertexNDCPos.y = (vertexNDCPos.y + 1.0f) * 0.5f;
-		vertexNDCPos.z = (vertexNDCPos.z + 1.0f) * 0.5f;
-		vertexScreenPos[i] = { vertexNDCPos.x * renderTarget.Width, vertexNDCPos.y * renderTarget.Height };
-		vertexScreenDepth[i] = vertexNDCPos.z;
-	}
-
-	float minX = std::min(std::min(vertexScreenPos[0].x, vertexScreenPos[1].x), vertexScreenPos[2].x);
-	float maxX = std::max(std::max(vertexScreenPos[0].x, vertexScreenPos[1].x), vertexScreenPos[2].x);
-	float minY = std::min(std::min(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
-	float maxY = std::max(std::max(vertexScreenPos[0].y, vertexScreenPos[1].y), vertexScreenPos[2].y);
+	float minX = std::min(std::min(aTriangle.RasterizationPoints[0].ScreenPos.x, aTriangle.RasterizationPoints[1].ScreenPos.x), aTriangle.RasterizationPoints[2].ScreenPos.x);
+	float maxX = std::max(std::max(aTriangle.RasterizationPoints[0].ScreenPos.x, aTriangle.RasterizationPoints[1].ScreenPos.x), aTriangle.RasterizationPoints[2].ScreenPos.x);
+	float minY = std::min(std::min(aTriangle.RasterizationPoints[0].ScreenPos.y, aTriangle.RasterizationPoints[1].ScreenPos.y), aTriangle.RasterizationPoints[2].ScreenPos.y);
+	float maxY = std::max(std::max(aTriangle.RasterizationPoints[0].ScreenPos.y, aTriangle.RasterizationPoints[1].ScreenPos.y), aTriangle.RasterizationPoints[2].ScreenPos.y);
 
 	int boundsStartXPixel = std::clamp(static_cast<int>(std::floor(minX)), int(0), static_cast<int>(renderTarget.Width - 1));
 	int boundsEndXPixel = std::clamp(static_cast<int>(std::ceil(maxX)), int(0), static_cast<int>(renderTarget.Width - 1));
 	int boundsStartYPixel = std::clamp(static_cast<int>(std::floor(minY)), int(0), static_cast<int>(renderTarget.Height - 1));
 	int boundsEndYPixel = std::clamp(static_cast<int>(std::ceil(maxY)), int(0), static_cast<int>(renderTarget.Height - 1));
-
-	float nearPlane = myShaderBuffer->NearPlane;
-	float farPlane = myShaderBuffer->FarPlane;
 
 	assert(boundsStartXPixel <= boundsEndXPixel);
 	assert(boundsStartYPixel <= boundsEndYPixel);
@@ -158,30 +167,37 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 
 			Vector2 pixelPosition = { static_cast<float>(x), static_cast<float>(y) };
 			Vector3 weights = {};
-			if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition, weights))
+			Vector2 screenPositions[3] = { aTriangle.RasterizationPoints[0].ScreenPos, aTriangle.RasterizationPoints[1].ScreenPos, aTriangle.RasterizationPoints[2].ScreenPos };
+			if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition, weights))
 			{
+				Vector3 wElements(aTriangle.RasterizationPoints[0].W, aTriangle.RasterizationPoints[1].W, aTriangle.RasterizationPoints[2].W);
+
 				Vector3 linearWeights = weights;
 				PerspectiveCorrectBarycentricWeights(wElements, weights);
 
 				if (weights.x < 0.0f || weights.x > 1.0f || weights.y < 0.0f || weights.y > 1.0f || weights.z < 0.0f || weights.z > 1.0f)
 					continue;
 				
-				float pixelDepth = vertexScreenDepth[0] * linearWeights.x + vertexScreenDepth[1] * linearWeights.y + vertexScreenDepth[2] * linearWeights.z;
-				if (pixelDepth > myRenderTarget->Depth[currentPixelIndex])
+				float pixelDepth = aTriangle.RasterizationPoints[0].ScreenDepth * linearWeights.x + 
+					aTriangle.RasterizationPoints[1].ScreenDepth * linearWeights.y +
+					aTriangle.RasterizationPoints[2].ScreenDepth * linearWeights.z;
+				if (pixelDepth > renderTarget.Depth[currentPixelIndex])
 					continue;
 
-				myRenderTarget->Depth[currentPixelIndex] = pixelDepth;
+				renderTarget.Depth[currentPixelIndex] = pixelDepth;
 				PixelShaderInput& result = outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
 				result.Depth = pixelDepth;
 
-				float pixelViewZ = aTriangle.Vertices[0].ViewZ * linearWeights.x + aTriangle.Vertices[1].ViewZ * linearWeights.y + aTriangle.Vertices[2].ViewZ * linearWeights.z;
-				float d = (abs(pixelViewZ) - nearPlane) / (farPlane - nearPlane);
+				float pixelViewZ = aTriangle.RasterizationPoints[0].ViewDepth * linearWeights.x + 
+					aTriangle.RasterizationPoints[1].ViewDepth * linearWeights.y + 
+					aTriangle.RasterizationPoints[2].ViewDepth * linearWeights.z;
+				float d = (abs(pixelViewZ) - myShaderBuffer->NearPlane) / (myShaderBuffer->FarPlane - myShaderBuffer->NearPlane);
 				float linearDepth = powf(1.0f - d, 0.5f);
 				result.VisualDepth = linearDepth;
 
 				Vector2 rightUVs = result.UV;
 				Vector3 rightWeights;
-				if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition + Vector2(1, 0), rightWeights))
+				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(1, 0), rightWeights))
 				{
 					PerspectiveCorrectBarycentricWeights(wElements, rightWeights);
 
@@ -191,7 +207,7 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 
 				Vector2 downUVs = result.UV;
 				Vector3 downWeights;
-				if (IsPointInsideTriangle(vertexScreenPos[0], vertexScreenPos[1], vertexScreenPos[2], pixelPosition + Vector2(0, 1), downWeights))
+				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(0, 1), downWeights))
 				{
 					PerspectiveCorrectBarycentricWeights(wElements, downWeights);
 

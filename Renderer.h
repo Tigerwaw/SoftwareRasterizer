@@ -14,8 +14,9 @@ public:
 	void Render();
 
 private:
-	void DrawTriangle(const TrianglePrimitive& aTriangle);
-	Vertex VertexShader(const Vertex& aVertex);
+	void DrawTriangle(const std::array<Vertex, 3>& aVertices);
+	VertexShaderOutput VertexShader(const Vertex& aVertex);
+	RasterizationPoint CreateRasterizationPoint(const VertexShaderOutput& aVertexShaderOutput);
 	void RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList);
 	PixelShaderInput InterpolatePixelValues(const TrianglePrimitive& aTriangle, unsigned aRenderTargetIndex, Vector2 aPixelPosition, Vector3 aWeights);
 	void PixelShader(const PixelShaderInput& aPixelInput);
