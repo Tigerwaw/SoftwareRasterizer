@@ -4,6 +4,7 @@
 #include <chrono>
 #include <iostream>
 #include <fstream>
+#include <future>
 
 #include <Windows.h>
 #undef min
@@ -440,21 +441,36 @@ static void CreateMipChain(const Texture& aSourceTexture, MipTexture& aMipTextur
 
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
+	std::vector<std::future<void>> mipFutures;
+
 	unsigned width = aSourceTexture.Width;
 	unsigned height = aSourceTexture.Height;
+	int index = 0;
 	while (width != 0 && height != 0)
 	{
-		Texture downSample;
-		downSample.Initialize(width, height);
+		aMipTexture.MipChain.emplace_back();
+		assert(aMipTexture.MipChain.size() == index + 1);
 
-		Texture& blurred = aMipTexture.MipChain.emplace_back();
-		blurred.Initialize(width, height);
+		mipFutures.emplace_back(std::async(std::launch::async, [width, height, index, &aSourceTexture, &aMipTexture]() mutable
+			{
+				Texture downSample;
+				downSample.Initialize(width, height);
 
-		Resample(aSourceTexture, downSample);
-		GaussianBlur(downSample, blurred);
+				Texture& blurred = aMipTexture.MipChain[index];
+				blurred.Initialize(width, height);
+
+				Resample(aSourceTexture, downSample);
+				GaussianBlur(downSample, blurred);
+			}));
 
 		width = static_cast<unsigned>(std::floorf(width * 0.5f));
 		height = static_cast<unsigned>(std::floorf(height * 0.5f));
+		index++;
+	}
+
+	for (auto& future : mipFutures)
+	{
+		future.wait();
 	}
 
 	aMipTexture.MipMaxLevel = static_cast<unsigned>(aMipTexture.MipChain.size() - 1);
@@ -485,6 +501,9 @@ static std::wstring ConvertStringToWString(const std::string& aString)
 static void LoadMaterials(std::vector<Material>& aMaterialList)
 {
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
+	
+	std::unordered_map<int, std::filesystem::path> diffuseTexturePaths;
+	std::unordered_map<int, std::filesystem::path> normalTexturePaths;
 
 	std::ifstream file("Assets/sponza.mtl");
 	std::string line;
@@ -505,9 +524,7 @@ static void LoadMaterials(std::vector<Material>& aMaterialList)
 		{
 			std::filesystem::path filePath = "Assets/" + GetMaterialParameter(line, keyword);
 			filePath.replace_extension("bmp");
-			Texture tempTex;
-			LoadBMPFile(filePath.wstring().c_str(), tempTex);
-			CreateMipChain(tempTex, aMaterialList.back().DiffuseTexture);
+			diffuseTexturePaths.emplace(static_cast<int>(aMaterialList.size() - 1), filePath);
 		}
 
 		keyword = "map_Disp";
@@ -515,13 +532,38 @@ static void LoadMaterials(std::vector<Material>& aMaterialList)
 		{
 			std::filesystem::path filePath = "assets/" + GetMaterialParameter(line, keyword);
 			filePath.replace_extension("bmp");
-			Texture tempTex;
-			LoadBMPFile(filePath.wstring().c_str(), tempTex);
-			CreateMipChain(tempTex, aMaterialList.back().NormalTexture);
+			normalTexturePaths.emplace(static_cast<int>(aMaterialList.size() - 1), filePath);
 		}
 	}
 
 	file.close();
+
+	std::vector<std::future<void>> texFutures;
+
+	for (auto& [materialIndex, filePath] : diffuseTexturePaths)
+	{
+		texFutures.emplace_back(std::async(std::launch::async, [filePath, materialIndex, &aMaterialList]() mutable
+			{
+				Texture tempTex;
+				LoadBMPFile(filePath.wstring().c_str(), tempTex);
+				CreateMipChain(tempTex, aMaterialList[materialIndex].DiffuseTexture);
+			}));
+	}
+
+	for (auto& [materialIndex, filePath] : normalTexturePaths)
+	{
+		texFutures.emplace_back(std::async(std::launch::async, [filePath, materialIndex, &aMaterialList]() mutable
+			{
+				Texture tempTex;
+				LoadBMPFile(filePath.wstring().c_str(), tempTex);
+				CreateMipChain(tempTex, aMaterialList[materialIndex].NormalTexture);
+			}));
+	}
+
+	for (auto& future : texFutures)
+	{
+		future.wait();
+	}
 }
 
 static void LoadObjects(std::vector<Object>& aObjectList)
