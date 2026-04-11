@@ -47,6 +47,15 @@ struct Texture
 		pixelCoords.x = pixelCoords.x % Width;
 		pixelCoords.y = pixelCoords.y % Height;
 
+		if (pixelCoords.x < 0.0f)
+			pixelCoords.x = Width + pixelCoords.x;
+
+		if (pixelCoords.y < 0.0f)
+			pixelCoords.y = Height + pixelCoords.y;
+
+		assert(pixelCoords.x >= 0 && pixelCoords.x < Width);
+		assert(pixelCoords.y >= 0 && pixelCoords.y < Height);
+
 		unsigned pixelIndex = GetPixelIndex(pixelCoords);
 
 		assert(pixelIndex >= 0 && pixelIndex < TextureData.size());
@@ -56,23 +65,28 @@ struct Texture
 
 	Vector4 BilinearSample(Vector2 aUVCoordinates) const
 	{
-		float texelPosX = aUVCoordinates.x * (Width - 1);
-		float texelPosY = aUVCoordinates.y * (Height - 1);
+		float texelPosX = static_cast<float>(fmod(aUVCoordinates.x * Width, Width));
+		float texelPosY = static_cast<float>(fmod(aUVCoordinates.y * Height, Height));
+
+		if (texelPosX < 0.0f)
+			texelPosX = Width + texelPosX;
+
+		if (texelPosY < 0.0f)
+			texelPosY = Height + texelPosY;
 
 		int leftTexelX = static_cast<int>(std::floorf(texelPosX));
 		int topTexelY = static_cast<int>(std::floorf(texelPosY));
 
-		int rightTexelX = std::clamp(leftTexelX + 1, 0, static_cast<int>(Width - 1));
-		int bottomTexelY = std::clamp(topTexelY + 1, 0, static_cast<int>(Height - 1));
+		int rightTexelX = (leftTexelX + 1) % Width;
+		int bottomTexelY = (topTexelY + 1) % Height;
 
 		float fractionX = texelPosX - static_cast<float>(leftTexelX);
 		float fractionY = texelPosY - static_cast<float>(topTexelY);
 
-		DirectX::XMINT2 pixelCoords = {};
-		pixelCoords.x = static_cast<int32_t>(aUVCoordinates.x * Width);
-		pixelCoords.y = static_cast<int32_t>(aUVCoordinates.y * Height);
-		pixelCoords.x = pixelCoords.x % Width;
-		pixelCoords.y = pixelCoords.y % Height;
+		assert(leftTexelX >= 0 && leftTexelX < Width);
+		assert(rightTexelX >= 0 && rightTexelX < Width);
+		assert(topTexelY >= 0 && topTexelY < Height);
+		assert(bottomTexelY >= 0 && bottomTexelY < Height);
 
 		Vector4 topLeftSample = TextureData[GetPixelIndex({ leftTexelX, topTexelY })];
 		Vector4 topRightSample = TextureData[GetPixelIndex({ rightTexelX, topTexelY })];
