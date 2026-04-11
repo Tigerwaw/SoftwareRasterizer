@@ -53,8 +53,8 @@ struct Texture
 		if (pixelCoords.y < 0.0f)
 			pixelCoords.y = Height + pixelCoords.y;
 
-		assert(pixelCoords.x >= 0 && pixelCoords.x < Width);
-		assert(pixelCoords.y >= 0 && pixelCoords.y < Height);
+		assert(pixelCoords.x >= 0 && pixelCoords.x < static_cast<int>(Width));
+		assert(pixelCoords.y >= 0 && pixelCoords.y < static_cast<int>(Height));
 
 		unsigned pixelIndex = GetPixelIndex(pixelCoords);
 
@@ -83,10 +83,10 @@ struct Texture
 		float fractionX = texelPosX - static_cast<float>(leftTexelX);
 		float fractionY = texelPosY - static_cast<float>(topTexelY);
 
-		assert(leftTexelX >= 0 && leftTexelX < Width);
-		assert(rightTexelX >= 0 && rightTexelX < Width);
-		assert(topTexelY >= 0 && topTexelY < Height);
-		assert(bottomTexelY >= 0 && bottomTexelY < Height);
+		assert(leftTexelX >= 0 && leftTexelX < static_cast<int>(Width));
+		assert(rightTexelX >= 0 && rightTexelX < static_cast<int>(Width));
+		assert(topTexelY >= 0 && topTexelY < static_cast<int>(Height));
+		assert(bottomTexelY >= 0 && bottomTexelY < static_cast<int>(Height));
 
 		Vector4 topLeftSample = TextureData[GetPixelIndex({ leftTexelX, topTexelY })];
 		Vector4 topRightSample = TextureData[GetPixelIndex({ rightTexelX, topTexelY })];
@@ -146,18 +146,20 @@ struct MipTexture
 		return BilinearSampleLevel(aUVCoordinates, static_cast<int>(std::floorf(lod)));
 	}
 
-	//Vector4 TrilinearSample(Vector2 aUVCoordinates, const UV_Derivatives& aDXDY) const
-	//{
-	//	float lod = CalculateMipMapLOD(aDXDY, MipChain[0].Width, MipChain[0].Height, MipMaxLevel);
+	Vector4 TrilinearSample(Vector2 aUVCoordinates, const UV_Derivatives& aDXDY) const
+	{
+		float lod = CalculateMipMapLOD(aDXDY, MipChain[0].Width, MipChain[0].Height, MipMaxLevel);
 
-	//	int mipLevel0 = static_cast<int>(std::floorf(aLOD));
-	//	int mipLevel1 = std::clamp(mipLevel0 + 1, 0, MaxMipLevel);
+		int mipLevel0 = static_cast<int>(std::floorf(lod));
+		int mipLevel1 = std::clamp(mipLevel0 + 1, 0, static_cast<int>(MipMaxLevel));
 
-	//	float mipBlend = aLOD - mipLevel0;
+		float mipBlend = lod - mipLevel0;
 
-	//	Vector4 color0 = BilinearSample(aUVCoordinates);
-	//	Vector4 color1 = BilinearSample(aUVCoordinates);
-	//}
+		Vector4 color0 = BilinearSampleLevel(aUVCoordinates, mipLevel0);
+		Vector4 color1 = BilinearSampleLevel(aUVCoordinates, mipLevel1);
+
+		return DirectX::XMVectorLerp(color0, color1, mipBlend);
+	}
 };
 
 struct RenderTarget : public Texture

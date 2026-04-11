@@ -436,41 +436,29 @@ static void Resample(const Texture& aSourceTexture, Texture& aDestinationTexture
 
 static void CreateMipChain(const Texture& aSourceTexture, MipTexture& aMipTexture)
 {
-	assert(aSourceTexture.Width == static_cast<unsigned>(pow(2, log2(aSourceTexture.Width))));
-	assert(aSourceTexture.Height == static_cast<unsigned>(pow(2, log2(aSourceTexture.Height))));
-
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
-	std::vector<std::future<void>> mipFutures;
+	int stepsToMipW = static_cast<int>(log2(aSourceTexture.Width));
+	int stepsToMipH = static_cast<int>(log2(aSourceTexture.Height));
+	int stepsToMip = std::min(stepsToMipW, stepsToMipH);
 
-	unsigned width = aSourceTexture.Width;
-	unsigned height = aSourceTexture.Height;
-	int index = 0;
-	while (width != 0 && height != 0)
+	assert(aSourceTexture.Width == static_cast<unsigned>(pow(2, stepsToMipW)));
+	assert(aSourceTexture.Height == static_cast<unsigned>(pow(2, stepsToMipH)));
+
+	aMipTexture.MipChain.push_back(aSourceTexture);
+
+	unsigned width = static_cast<unsigned>(std::floorf(aSourceTexture.Width * 0.5f));
+	unsigned height = static_cast<unsigned>(std::floorf(aSourceTexture.Height * 0.5f));
+	for (int i = 1; i < stepsToMip; i++)
 	{
-		aMipTexture.MipChain.emplace_back();
-		assert(aMipTexture.MipChain.size() == index + 1);
+		assert(aMipTexture.MipChain.size() == i);
 
-		mipFutures.emplace_back(std::async(std::launch::async, [width, height, index, &aSourceTexture, &aMipTexture]() mutable
-			{
-				Texture downSample;
-				downSample.Initialize(width, height);
-
-				Texture& blurred = aMipTexture.MipChain[index];
-				blurred.Initialize(width, height);
-
-				Resample(aSourceTexture, downSample);
-				GaussianBlur(downSample, blurred);
-			}));
+		Texture& downSample = aMipTexture.MipChain.emplace_back();
+		downSample.Initialize(width, height);
+		Resample(aMipTexture.MipChain[i-1], downSample);
 
 		width = static_cast<unsigned>(std::floorf(width * 0.5f));
 		height = static_cast<unsigned>(std::floorf(height * 0.5f));
-		index++;
-	}
-
-	for (auto& future : mipFutures)
-	{
-		future.wait();
 	}
 
 	aMipTexture.MipMaxLevel = static_cast<unsigned>(aMipTexture.MipChain.size() - 1);
