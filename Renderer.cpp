@@ -61,24 +61,132 @@ void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 {
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
-	TrianglePrimitive prim;
-	prim.Vertices[0] = VertexShader(aVertices[0]);
-	prim.Vertices[1] = VertexShader(aVertices[1]);
-	prim.Vertices[2] = VertexShader(aVertices[2]);
-	prim.RasterizationPoints[0] = CreateRasterizationPoint(prim.Vertices[0]);
-	prim.RasterizationPoints[1] = CreateRasterizationPoint(prim.Vertices[1]);
-	prim.RasterizationPoints[2] = CreateRasterizationPoint(prim.Vertices[2]);
+	std::array<VertexShaderOutput, 3> vertexOutputs;
+	vertexOutputs[0] = VertexShader(aVertices[0]);
+	vertexOutputs[1] = VertexShader(aVertices[1]);
+	vertexOutputs[2] = VertexShader(aVertices[2]);
 
-	std::vector<PixelShaderInput> pixelList;
-	RasterizeTriangle(prim, pixelList);
-
-	if (pixelList.empty())
-		return;
-
-	PIXScopedEvent(PIX_COLOR_INDEX(0), "Pixel Shader Loop");
-	for (auto& pixel : pixelList)
+	int clipCount = 0;
+	int unclippedCount = 0;
+	std::array<int, 3> clippedVertices = {};
+	std::array<int, 3> unclippedVertices = {};
+	for (int i = 0; i < 3; i++)
 	{
-		PixelShader(pixel);
+		if (ShouldVertexBeClipped(vertexOutputs[i]))
+		{
+			clippedVertices[clipCount] = i;
+			clipCount++;
+		}
+		else
+		{
+			unclippedVertices[unclippedCount] = i;
+			unclippedCount++;
+		}
+	}
+
+	std::vector<TrianglePrimitive> triangles;
+	switch (clipCount)
+	{
+	case 0:
+	{
+		TrianglePrimitive& prim = triangles.emplace_back();
+		prim.Vertices[0] = vertexOutputs[0];
+		prim.Vertices[1] = vertexOutputs[1];
+		prim.Vertices[2] = vertexOutputs[2];
+		prim.RasterizationPoints[0] = CreateRasterizationPoint(prim.Vertices[0]);
+		prim.RasterizationPoints[1] = CreateRasterizationPoint(prim.Vertices[1]);
+		prim.RasterizationPoints[2] = CreateRasterizationPoint(prim.Vertices[2]);
+		break;
+	}
+	case 1:
+	{
+		VertexShaderOutput clippedVertex = vertexOutputs[clippedVertices[0]];
+		VertexShaderOutput unclippedVertexA = vertexOutputs[unclippedVertices[0]];
+		VertexShaderOutput unclippedVertexB = vertexOutputs[unclippedVertices[1]];
+		VertexShaderOutput newVertexA = clippedVertex;
+		VertexShaderOutput newVertexB = clippedVertex;
+
+		float lerpToA = unclippedVertexA.ClipPosition.z + unclippedVertexA.ClipPosition.w;
+		float lerpToB = unclippedVertexB.ClipPosition.z + unclippedVertexB.ClipPosition.w;
+		float lerpFrom = clippedVertex.ClipPosition.z + clippedVertex.ClipPosition.w;
+
+		float tA = lerpFrom / (lerpFrom - lerpToA);
+		LerpVertexShaderOutput(newVertexA, unclippedVertexA, tA);
+
+		float tB = lerpFrom / (lerpFrom - lerpToB);
+		LerpVertexShaderOutput(newVertexB, unclippedVertexB, tB);
+
+		RasterizationPoint unclippedA = CreateRasterizationPoint(unclippedVertexA);
+		RasterizationPoint unclippedB = CreateRasterizationPoint(unclippedVertexB);
+		RasterizationPoint newA = CreateRasterizationPoint(newVertexA);
+		RasterizationPoint newB = CreateRasterizationPoint(newVertexB);
+
+		TrianglePrimitive& prim0 = triangles.emplace_back();
+		prim0.Vertices[0] = unclippedVertexA;
+		prim0.Vertices[1] = unclippedVertexB;
+		prim0.Vertices[2] = newVertexA;
+		prim0.RasterizationPoints[0] = unclippedA;
+		prim0.RasterizationPoints[1] = unclippedB;
+		prim0.RasterizationPoints[2] = newA;
+
+		TrianglePrimitive& prim1 = triangles.emplace_back();
+		prim1.Vertices[0] = newVertexA;
+		prim1.Vertices[1] = newVertexB;
+		prim1.Vertices[2] = unclippedVertexB;
+		prim1.RasterizationPoints[0] = newA;
+		prim1.RasterizationPoints[1] = newB;
+		prim1.RasterizationPoints[2] = unclippedB;
+
+		break;
+	}
+	case 2:
+	{
+		TrianglePrimitive& prim = triangles.emplace_back();
+		prim.Vertices[0] = vertexOutputs[0];
+		prim.Vertices[1] = vertexOutputs[1];
+		prim.Vertices[2] = vertexOutputs[2];
+
+		VertexShaderOutput& unclippedVertex = prim.Vertices[unclippedVertices[0]];
+		VertexShaderOutput& clippedVertexA = prim.Vertices[clippedVertices[0]];
+		VertexShaderOutput& clippedVertexB = prim.Vertices[clippedVertices[1]];
+
+		float lerpTo = unclippedVertex.ClipPosition.z + unclippedVertex.ClipPosition.w;
+		float lerpFromA = clippedVertexA.ClipPosition.z + clippedVertexA.ClipPosition.w;
+		float lerpFromB = clippedVertexB.ClipPosition.z + clippedVertexB.ClipPosition.w;
+
+		float tA = lerpFromA / (lerpFromA - lerpTo);
+		LerpVertexShaderOutput(clippedVertexA, unclippedVertex, tA);
+
+		float tB = lerpFromB / (lerpFromB - lerpTo);
+		LerpVertexShaderOutput(clippedVertexB, unclippedVertex, tB);
+
+		prim.RasterizationPoints[0] = CreateRasterizationPoint(prim.Vertices[0]);
+		prim.RasterizationPoints[1] = CreateRasterizationPoint(prim.Vertices[1]);
+		prim.RasterizationPoints[2] = CreateRasterizationPoint(prim.Vertices[2]);
+
+		break;
+	}
+	case 3:
+	{
+		return;
+	}
+	default:
+		break;
+	}
+
+	for (auto& triangle : triangles)
+	{
+		std::vector<PixelShaderInput> pixelList;
+		RasterizeTriangle(triangle, pixelList);
+
+		if (pixelList.empty())
+			return;
+
+		PIXScopedEvent(PIX_COLOR_INDEX(0), "Pixel Shader Loop");
+		for (auto& pixel : pixelList)
+		{
+			PixelShader(pixel);
+		}
 	}
 }
 
@@ -94,7 +202,7 @@ VertexShaderOutput Renderer::VertexShader(const Vertex& aVertex)
 	Vector4 vertexClipPos = Vector4::Transform(vertexViewPos, shaderBuffer.ViewToProjectionSpace);
 
 	VertexShaderOutput output;
-
+	
 	output.ClipPosition = vertexClipPos;
 	output.WorldPosition = vertexWorldPos;
 	output.ViewPosition = vertexViewPos;
@@ -131,6 +239,24 @@ RasterizationPoint Renderer::CreateRasterizationPoint(const VertexShaderOutput& 
 	output.W = aVertexShaderOutput.ClipPosition.w;
 
 	return output;
+}
+
+bool Renderer::ShouldVertexBeClipped(const VertexShaderOutput& aVertex)
+{
+	bool insideZRange = -aVertex.ClipPosition.w < aVertex.ClipPosition.z && aVertex.ClipPosition.z < aVertex.ClipPosition.w;
+	return insideZRange == false;
+}
+
+void Renderer::LerpVertexShaderOutput(VertexShaderOutput& aFrom, const VertexShaderOutput& aTo, float aT)
+{
+	aFrom.WorldPosition = DirectX::XMVectorLerp(aFrom.WorldPosition, aTo.WorldPosition, aT);
+	aFrom.ViewPosition = DirectX::XMVectorLerp(aFrom.ViewPosition, aTo.ViewPosition, aT);
+	aFrom.ClipPosition = DirectX::XMVectorLerp(aFrom.ClipPosition, aTo.ClipPosition, aT);
+	aFrom.Color = DirectX::XMVectorLerp(aFrom.Color, aTo.Color, aT);
+	aFrom.UV = DirectX::XMVectorLerp(aFrom.UV, aTo.UV, aT);
+	aFrom.Normals = DirectX::XMVectorLerp(aFrom.Normals, aTo.Normals, aT);
+	aFrom.Tangents = DirectX::XMVectorLerp(aFrom.Tangents, aTo.Tangents, aT);
+	aFrom.Binormals = DirectX::XMVectorLerp(aFrom.Binormals, aTo.Binormals, aT);
 }
 
 void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList)
@@ -235,14 +361,17 @@ PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTria
 	pixel.Normals.x = aTriangle.Vertices[0].Normals.x * aWeights.x + aTriangle.Vertices[1].Normals.x * aWeights.y + aTriangle.Vertices[2].Normals.x * aWeights.z;
 	pixel.Normals.y = aTriangle.Vertices[0].Normals.y * aWeights.x + aTriangle.Vertices[1].Normals.y * aWeights.y + aTriangle.Vertices[2].Normals.y * aWeights.z;
 	pixel.Normals.z = aTriangle.Vertices[0].Normals.z * aWeights.x + aTriangle.Vertices[1].Normals.z * aWeights.y + aTriangle.Vertices[2].Normals.z * aWeights.z;
+	pixel.Normals.Normalize();
 
 	pixel.Tangents.x = aTriangle.Vertices[0].Tangents.x * aWeights.x + aTriangle.Vertices[1].Tangents.x * aWeights.y + aTriangle.Vertices[2].Tangents.x * aWeights.z;
 	pixel.Tangents.y = aTriangle.Vertices[0].Tangents.y * aWeights.x + aTriangle.Vertices[1].Tangents.y * aWeights.y + aTriangle.Vertices[2].Tangents.y * aWeights.z;
 	pixel.Tangents.z = aTriangle.Vertices[0].Tangents.z * aWeights.x + aTriangle.Vertices[1].Tangents.z * aWeights.y + aTriangle.Vertices[2].Tangents.z * aWeights.z;
+	pixel.Tangents.Normalize();
 
 	pixel.Binormals.x = aTriangle.Vertices[0].Binormals.x * aWeights.x + aTriangle.Vertices[1].Binormals.x * aWeights.y + aTriangle.Vertices[2].Binormals.x * aWeights.z;
 	pixel.Binormals.y = aTriangle.Vertices[0].Binormals.y * aWeights.x + aTriangle.Vertices[1].Binormals.y * aWeights.y + aTriangle.Vertices[2].Binormals.y * aWeights.z;
 	pixel.Binormals.z = aTriangle.Vertices[0].Binormals.z * aWeights.x + aTriangle.Vertices[1].Binormals.z * aWeights.y + aTriangle.Vertices[2].Binormals.z * aWeights.z;
+	pixel.Binormals.Normalize();
 
 	pixel.UV.x = aTriangle.Vertices[0].UV.x * aWeights.x + aTriangle.Vertices[1].UV.x * aWeights.y + aTriangle.Vertices[2].UV.x * aWeights.z;
 	pixel.UV.y = aTriangle.Vertices[0].UV.y * aWeights.x + aTriangle.Vertices[1].UV.y * aWeights.y + aTriangle.Vertices[2].UV.y * aWeights.z;
@@ -256,6 +385,10 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 {
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 	const Vector3 specColor = Vector3(1.0f, 1.0f, 1.0f);
+
+	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+	if (diffuseMap.A() < 0.01f)
+		return;
 
 	Vector3 halfDir = myShaderBuffer->LightDir + myShaderBuffer->CameraDir;
 	halfDir.Normalize();
@@ -292,7 +425,6 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 
 	Vector3 spec = specColor * specularIntensity;
 
-	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
 	Color color = diffuseMap + spec;
 	color.Saturate();
 
