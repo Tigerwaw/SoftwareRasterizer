@@ -169,7 +169,7 @@ struct RenderTarget : public Texture
 	void Initialize(unsigned aWidth, unsigned aHeight) override
 	{
 		Texture::Initialize(aWidth, aHeight);
-		Depth.assign(static_cast<size_t>(Width * Height), 1.0f);
+		Depth.assign(static_cast<size_t>(Width * Height), FLT_MAX);
 	}
 
 	void ClearRenderTarget()
@@ -227,7 +227,6 @@ struct VertexShaderOutput
 struct RasterizationPoint
 {
 	Vector2 ScreenPos;
-	float ScreenDepth;
 	float ViewDepth;
 	float W;
 };

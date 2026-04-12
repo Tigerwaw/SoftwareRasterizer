@@ -31,7 +31,7 @@ static float Edge(Vector2 aA, Vector2 aB, Vector2 aC)
 	return (aC.x - aA.x) * (aB.y - aA.y) - (aC.y - aA.y) * (aB.x - aA.x);
 }
 
-static bool IsPointInsideTriangle(Vector2 aA, Vector2 aB, Vector2 aC, Vector2 aP, Vector3& outWeights)
+static bool IsPointInsideTriangle(Vector2 aA, Vector2 aB, Vector2 aC, Vector2 aP, Vector3 aWElements, Vector3& outWeights)
 {
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
@@ -47,24 +47,15 @@ static bool IsPointInsideTriangle(Vector2 aA, Vector2 aB, Vector2 aC, Vector2 aP
 	if (w0 < 0 || w1 < 0 || w2 < 0)
 		return false;
 
-	float invArea = 1.0f / area;
-	outWeights = { w0 * invArea, w1 * invArea, w2 * invArea };
-
-	return true;
-}
-
-static void PerspectiveCorrectBarycentricWeights(Vector3 aWElements, Vector3& outWeights)
-{
-	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
-
+	outWeights = { w0, w1, w2 };
 	outWeights.x *= 1.0f / aWElements.x;
 	outWeights.y *= 1.0f / aWElements.y;
 	outWeights.z *= 1.0f / aWElements.z;
 
 	float sum = outWeights.x + outWeights.y + outWeights.z;
-	outWeights.x /= sum;
-	outWeights.y /= sum;
-	outWeights.z /= sum;
+	outWeights /= sum;
+
+	return true;
 }
 
 static void CreateCubeModel(Model& aModel)

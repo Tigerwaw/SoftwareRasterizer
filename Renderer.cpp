@@ -100,21 +100,27 @@ void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 	}
 	case 1:
 	{
-		VertexShaderOutput clippedVertex = vertexOutputs[clippedVertices[0]];
-		VertexShaderOutput unclippedVertexA = vertexOutputs[unclippedVertices[0]];
-		VertexShaderOutput unclippedVertexB = vertexOutputs[unclippedVertices[1]];
-		VertexShaderOutput newVertexA = clippedVertex;
-		VertexShaderOutput newVertexB = clippedVertex;
+		const VertexShaderOutput clippedVertex = vertexOutputs[clippedVertices[0]];
+		const VertexShaderOutput unclippedVertexA = vertexOutputs[unclippedVertices[0]];
+		const VertexShaderOutput unclippedVertexB = vertexOutputs[unclippedVertices[1]];
+		VertexShaderOutput newVertexA;
+		VertexShaderOutput newVertexB;
 
-		float lerpToA = unclippedVertexA.ClipPosition.z + unclippedVertexA.ClipPosition.w;
-		float lerpToB = unclippedVertexB.ClipPosition.z + unclippedVertexB.ClipPosition.w;
-		float lerpFrom = clippedVertex.ClipPosition.z + clippedVertex.ClipPosition.w;
+		Vector4 plane = { 0.0f, 0.0f, 1.0f, 0.0f };
 
-		float tA = lerpFrom / (lerpFrom - lerpToA);
-		LerpVertexShaderOutput(newVertexA, unclippedVertexA, tA);
+		float pC = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, clippedVertex.ClipPosition));
+		float pA = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, unclippedVertexA.ClipPosition));
+		float pB = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, unclippedVertexB.ClipPosition));
 
-		float tB = lerpFrom / (lerpFrom - lerpToB);
-		LerpVertexShaderOutput(newVertexB, unclippedVertexB, tB);
+		assert(pC < 0.0f);
+		assert(pA >= 0.0f);
+		assert(pB >= 0.0f);
+
+		float tA = pC / (pC - pA);
+		newVertexA = LerpVertexShaderOutput(unclippedVertexA, clippedVertex, tA);
+
+		float tB = pC / (pC - pB);
+		newVertexB = LerpVertexShaderOutput(unclippedVertexB, clippedVertex, tB);
 
 		RasterizationPoint unclippedA = CreateRasterizationPoint(unclippedVertexA);
 		RasterizationPoint unclippedB = CreateRasterizationPoint(unclippedVertexB);
@@ -124,42 +130,50 @@ void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 		TrianglePrimitive& prim0 = triangles.emplace_back();
 		prim0.Vertices[0] = unclippedVertexA;
 		prim0.Vertices[1] = unclippedVertexB;
-		prim0.Vertices[2] = newVertexA;
+		prim0.Vertices[2] = newVertexB;
 		prim0.RasterizationPoints[0] = unclippedA;
 		prim0.RasterizationPoints[1] = unclippedB;
-		prim0.RasterizationPoints[2] = newA;
+		prim0.RasterizationPoints[2] = newB;
 
 		TrianglePrimitive& prim1 = triangles.emplace_back();
-		prim1.Vertices[0] = newVertexA;
-		prim1.Vertices[1] = newVertexB;
-		prim1.Vertices[2] = unclippedVertexB;
-		prim1.RasterizationPoints[0] = newA;
-		prim1.RasterizationPoints[1] = newB;
-		prim1.RasterizationPoints[2] = unclippedB;
+		prim1.Vertices[0] = newVertexB;
+		prim1.Vertices[1] = newVertexA;
+		prim1.Vertices[2] = unclippedVertexA;
+		prim1.RasterizationPoints[0] = newB;
+		prim1.RasterizationPoints[1] = newA;
+		prim1.RasterizationPoints[2] = unclippedA;
 
 		break;
 	}
 	case 2:
 	{
+		const VertexShaderOutput& unclippedVertex = vertexOutputs[unclippedVertices[0]];
+		const VertexShaderOutput& clippedVertexA = vertexOutputs[clippedVertices[0]];
+		const VertexShaderOutput& clippedVertexB = vertexOutputs[clippedVertices[1]];
+		VertexShaderOutput newVertexA;
+		VertexShaderOutput newVertexB;
+
+		Vector4 plane = { 0.0f, 0.0f, 1.0f, 0.0f };
+
+		float pU = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, unclippedVertex.ClipPosition));
+		float pA = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, clippedVertexA.ClipPosition));
+		float pB = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, clippedVertexB.ClipPosition));
+
+		assert(pU >= 0.0f);
+		assert(pA < 0.0f);
+		assert(pB < 0.0f);
+
+		float tA = pU / (pU - pA);
+		newVertexA = LerpVertexShaderOutput(clippedVertexA, unclippedVertex, tA);
+
+		float tB = pU / (pU - pB);
+		newVertexB = LerpVertexShaderOutput(clippedVertexB, unclippedVertex, tB);
+
 		TrianglePrimitive& prim = triangles.emplace_back();
-		prim.Vertices[0] = vertexOutputs[0];
-		prim.Vertices[1] = vertexOutputs[1];
-		prim.Vertices[2] = vertexOutputs[2];
 
-		VertexShaderOutput& unclippedVertex = prim.Vertices[unclippedVertices[0]];
-		VertexShaderOutput& clippedVertexA = prim.Vertices[clippedVertices[0]];
-		VertexShaderOutput& clippedVertexB = prim.Vertices[clippedVertices[1]];
-
-		float lerpTo = unclippedVertex.ClipPosition.z + unclippedVertex.ClipPosition.w;
-		float lerpFromA = clippedVertexA.ClipPosition.z + clippedVertexA.ClipPosition.w;
-		float lerpFromB = clippedVertexB.ClipPosition.z + clippedVertexB.ClipPosition.w;
-
-		float tA = lerpFromA / (lerpFromA - lerpTo);
-		LerpVertexShaderOutput(clippedVertexA, unclippedVertex, tA);
-
-		float tB = lerpFromB / (lerpFromB - lerpTo);
-		LerpVertexShaderOutput(clippedVertexB, unclippedVertex, tB);
-
+		prim.Vertices[0] = unclippedVertex;
+		prim.Vertices[1] = newVertexA;
+		prim.Vertices[2] = newVertexB;
 		prim.RasterizationPoints[0] = CreateRasterizationPoint(prim.Vertices[0]);
 		prim.RasterizationPoints[1] = CreateRasterizationPoint(prim.Vertices[1]);
 		prim.RasterizationPoints[2] = CreateRasterizationPoint(prim.Vertices[2]);
@@ -180,7 +194,7 @@ void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 		RasterizeTriangle(triangle, pixelList);
 
 		if (pixelList.empty())
-			return;
+			continue;
 
 		PIXScopedEvent(PIX_COLOR_INDEX(0), "Pixel Shader Loop");
 		for (auto& pixel : pixelList)
@@ -233,8 +247,6 @@ RasterizationPoint Renderer::CreateRasterizationPoint(const VertexShaderOutput& 
 	output.ScreenPos.y = (output.ScreenPos.y + 1.0f) * 0.5f;
 	output.ScreenPos.y *= myRenderTarget->Height;
 
-	output.ScreenDepth = aVertexShaderOutput.ClipPosition.z * invW;
-	output.ScreenDepth = (output.ScreenDepth + 1.0f) * 0.5f;
 	output.ViewDepth = aVertexShaderOutput.ViewPosition.z;
 	output.W = aVertexShaderOutput.ClipPosition.w;
 
@@ -243,20 +255,22 @@ RasterizationPoint Renderer::CreateRasterizationPoint(const VertexShaderOutput& 
 
 bool Renderer::ShouldVertexBeClipped(const VertexShaderOutput& aVertex)
 {
-	bool insideZRange = -aVertex.ClipPosition.w < aVertex.ClipPosition.z && aVertex.ClipPosition.z < aVertex.ClipPosition.w;
-	return insideZRange == false;
+	bool outsideZRange = aVertex.ClipPosition.z  < 0.0f || aVertex.ClipPosition.z > aVertex.ClipPosition.w;
+	return outsideZRange;
 }
 
-void Renderer::LerpVertexShaderOutput(VertexShaderOutput& aFrom, const VertexShaderOutput& aTo, float aT)
+VertexShaderOutput Renderer::LerpVertexShaderOutput(const VertexShaderOutput& aFrom, const VertexShaderOutput& aTo, float aT)
 {
-	aFrom.WorldPosition = DirectX::XMVectorLerp(aFrom.WorldPosition, aTo.WorldPosition, aT);
-	aFrom.ViewPosition = DirectX::XMVectorLerp(aFrom.ViewPosition, aTo.ViewPosition, aT);
-	aFrom.ClipPosition = DirectX::XMVectorLerp(aFrom.ClipPosition, aTo.ClipPosition, aT);
-	aFrom.Color = DirectX::XMVectorLerp(aFrom.Color, aTo.Color, aT);
-	aFrom.UV = DirectX::XMVectorLerp(aFrom.UV, aTo.UV, aT);
-	aFrom.Normals = DirectX::XMVectorLerp(aFrom.Normals, aTo.Normals, aT);
-	aFrom.Tangents = DirectX::XMVectorLerp(aFrom.Tangents, aTo.Tangents, aT);
-	aFrom.Binormals = DirectX::XMVectorLerp(aFrom.Binormals, aTo.Binormals, aT);
+	VertexShaderOutput output;
+	output.WorldPosition = DirectX::XMVectorLerp(aFrom.WorldPosition, aTo.WorldPosition, aT);
+	output.ViewPosition = DirectX::XMVectorLerp(aFrom.ViewPosition, aTo.ViewPosition, aT);
+	output.ClipPosition = DirectX::XMVectorLerp(aFrom.ClipPosition, aTo.ClipPosition, aT);
+	output.UV = DirectX::XMVectorLerp(aFrom.UV, aTo.UV, aT);
+	output.Color = DirectX::XMVectorLerp(aFrom.Color, aTo.Color, aT);
+	output.Normals = DirectX::XMVectorLerp(aFrom.Normals, aTo.Normals, aT);
+	output.Tangents = DirectX::XMVectorLerp(aFrom.Tangents, aTo.Tangents, aT);
+	output.Binormals = DirectX::XMVectorLerp(aFrom.Binormals, aTo.Binormals, aT);
+	return output;
 }
 
 void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList)
@@ -291,19 +305,15 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 			Vector2 pixelPosition = { static_cast<float>(x), static_cast<float>(y) };
 			Vector3 weights = {};
 			Vector2 screenPositions[3] = { aTriangle.RasterizationPoints[0].ScreenPos, aTriangle.RasterizationPoints[1].ScreenPos, aTriangle.RasterizationPoints[2].ScreenPos };
-			if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition, weights))
+			Vector3 wElements(aTriangle.RasterizationPoints[0].W, aTriangle.RasterizationPoints[1].W, aTriangle.RasterizationPoints[2].W);
+			if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition, wElements, weights))
 			{
-				Vector3 wElements(aTriangle.RasterizationPoints[0].W, aTriangle.RasterizationPoints[1].W, aTriangle.RasterizationPoints[2].W);
-
-				Vector3 linearWeights = weights;
-				PerspectiveCorrectBarycentricWeights(wElements, weights);
-
 				if (weights.x < 0.0f || weights.x > 1.0f || weights.y < 0.0f || weights.y > 1.0f || weights.z < 0.0f || weights.z > 1.0f)
 					continue;
 				
-				float pixelDepth = aTriangle.RasterizationPoints[0].ScreenDepth * linearWeights.x + 
-					aTriangle.RasterizationPoints[1].ScreenDepth * linearWeights.y +
-					aTriangle.RasterizationPoints[2].ScreenDepth * linearWeights.z;
+				float pixelDepth = aTriangle.Vertices[0].ViewPosition.z * weights.x +
+					aTriangle.Vertices[1].ViewPosition.z * weights.y +
+					aTriangle.Vertices[2].ViewPosition.z * weights.z;
 				if (pixelDepth > renderTarget.Depth[currentPixelIndex])
 					continue;
 
@@ -311,29 +321,22 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 				PixelShaderInput& result = outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
 				result.Depth = pixelDepth;
 
-				float pixelViewZ = aTriangle.RasterizationPoints[0].ViewDepth * linearWeights.x + 
-					aTriangle.RasterizationPoints[1].ViewDepth * linearWeights.y + 
-					aTriangle.RasterizationPoints[2].ViewDepth * linearWeights.z;
-				float d = (abs(pixelViewZ) - myShaderBuffer->NearPlane) / (myShaderBuffer->FarPlane - myShaderBuffer->NearPlane);
+				float d = (abs(pixelDepth) - myShaderBuffer->NearPlane) / (myShaderBuffer->FarPlane - myShaderBuffer->NearPlane);
 				float linearDepth = powf(1.0f - d, 0.5f);
 				result.VisualDepth = linearDepth;
 
 				Vector2 rightUVs = result.UV;
 				Vector3 rightWeights;
-				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(1, 0), rightWeights))
+				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(1, 0), wElements, rightWeights))
 				{
-					PerspectiveCorrectBarycentricWeights(wElements, rightWeights);
-
 					rightUVs.x = aTriangle.Vertices[0].UV.x * rightWeights.x + aTriangle.Vertices[1].UV.x * rightWeights.y + aTriangle.Vertices[2].UV.x * rightWeights.z;
 					rightUVs.y = aTriangle.Vertices[0].UV.y * rightWeights.x + aTriangle.Vertices[1].UV.y * rightWeights.y + aTriangle.Vertices[2].UV.y * rightWeights.z;
 				}
 
 				Vector2 downUVs = result.UV;
 				Vector3 downWeights;
-				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(0, 1), downWeights))
+				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(0, 1), wElements, downWeights))
 				{
-					PerspectiveCorrectBarycentricWeights(wElements, downWeights);
-
 					downUVs.x = aTriangle.Vertices[0].UV.x * downWeights.x + aTriangle.Vertices[1].UV.x * downWeights.y + aTriangle.Vertices[2].UV.x * downWeights.z;
 					downUVs.y = aTriangle.Vertices[0].UV.y * downWeights.x + aTriangle.Vertices[1].UV.y * downWeights.y + aTriangle.Vertices[2].UV.y * downWeights.z;
 				}
@@ -386,7 +389,8 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 	const Vector3 specColor = Vector3(1.0f, 1.0f, 1.0f);
 
-	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+	//Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->SampleLevel(aPixelInput.UV, 0);
 	if (diffuseMap.A() < 0.01f)
 		return;
 
@@ -397,7 +401,8 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	calculatedNormals.Normalize();
 	if (myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->IsEmpty() == false)
 	{
-		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+		//Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
+		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->SampleLevel(aPixelInput.UV, 0);
 		calculatedNormals.x = (normalMap.x - 0.5f) * 2.0f;
 		calculatedNormals.y = (normalMap.y - 0.5f) * 2.0f;
 		calculatedNormals.z = sqrt(1 - std::clamp((calculatedNormals.x * calculatedNormals.x + calculatedNormals.y * calculatedNormals.y), 0.0f, 1.0f));
@@ -429,4 +434,5 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	color.Saturate();
 
 	myRenderTarget->TextureData[aPixelInput.RenderTargetIndex] = color;
+	//myRenderTarget->TextureData[aPixelInput.RenderTargetIndex] = { aPixelInput.UV.x, aPixelInput.UV.y, 0.0f, 1.0f };
 }

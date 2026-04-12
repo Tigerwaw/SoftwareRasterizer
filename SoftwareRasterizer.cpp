@@ -315,7 +315,7 @@ static void RenderSponza()
 	Renderer renderer;
 
 	RenderTarget renderTarget;
-	renderTarget.Initialize(512, 512);
+	renderTarget.Initialize(1024, 1024);
 
 	Camera camera;
 	camera.Width = renderTarget.Width;
@@ -329,8 +329,8 @@ static void RenderSponza()
 	camera.WorldTransform = DirectX::XMMatrixAffineTransformation(
 		{ 1.0f, 1.0f, 1.0f, 1.0f },
 		{ 0.0f, 0.0f, 0.0f, 1.0f },
-		DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(0.0f), DirectX::XMConvertToRadians(-90.0f), DirectX::XMConvertToRadians(0.0f)),
-		{ 600.0f, 400.0f, -50.0f, 1.0f }
+		DirectX::XMQuaternionRotationRollPitchYaw(DirectX::XMConvertToRadians(0.0f), DirectX::XMConvertToRadians(90.0f), DirectX::XMConvertToRadians(0.0f)),
+		{ -800.0f, 350.0f, -50.0f, 1.0f }
 	);
 
 	ShaderBuffer shaderBuffer = {};
