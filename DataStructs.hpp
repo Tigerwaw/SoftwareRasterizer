@@ -104,6 +104,8 @@ struct Texture
 
 static float CalculateMipMapLOD(const UV_Derivatives& aDXDY, unsigned aTextureWidth, unsigned aTextureHeight, unsigned aMaxMipLevel)
 {
+	const float mipBias = -1.0f;
+
 	float du_dx_tex = aDXDY.du_dx * aTextureWidth;
 	float dv_dx_tex = aDXDY.dv_dx * aTextureHeight;
 	float du_dy_tex = aDXDY.du_dy * aTextureWidth;
@@ -113,7 +115,7 @@ static float CalculateMipMapLOD(const UV_Derivatives& aDXDY, unsigned aTextureWi
 	float lenY = sqrtf(du_dy_tex * du_dy_tex + dv_dy_tex * dv_dy_tex);
 	float rho = std::max(lenX, lenY);
 	float lod = log2f(rho);
-	lod = std::clamp(lod, 0.0f, static_cast<float>(aMaxMipLevel));
+	lod = std::clamp(lod + mipBias, 0.0f, static_cast<float>(aMaxMipLevel));
 	return lod;
 }
 

@@ -338,7 +338,7 @@ static void RenderSponza()
 	shaderBuffer.ViewToProjectionSpace = camera.ProjectionMatrix;
 	shaderBuffer.NearPlane = camera.NearPlane;
 	shaderBuffer.FarPlane = camera.FarPlane;
-	shaderBuffer.LightDir = { -0.2f, 1.0f, 0.1f };
+	shaderBuffer.LightDir = { 0.8f, 0.3f, 0.7f };
 	shaderBuffer.LightDir.Normalize();
 	shaderBuffer.CameraDir = camera.WorldTransform.Forward();
 	shaderBuffer.CameraDir.Normalize();

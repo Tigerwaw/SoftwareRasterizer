@@ -404,13 +404,12 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	}
 
 	float specAngle = std::fmax(calculatedNormals.Dot(halfDir), 0.0f);
-	float specularIntensity = pow(specAngle, 16.0f);
+	float specularIntensity = pow(specAngle, 8.0f);
 
-	Vector3 spec = specColor * specularIntensity;
+	Vector3 spec = specColor * specularIntensity * 0.7f;
 
 	Color color = diffuseMap + spec;
 	color.Saturate();
 
 	myRenderTarget->TextureData[aPixelInput.RenderTargetIndex] = color;
-	//myRenderTarget->TextureData[aPixelInput.RenderTargetIndex] = { aPixelInput.UV.x, aPixelInput.UV.y, 0.0f, 1.0f };
 }
