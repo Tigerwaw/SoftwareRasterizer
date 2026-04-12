@@ -106,21 +106,11 @@ void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 		VertexShaderOutput newVertexA;
 		VertexShaderOutput newVertexB;
 
-		Vector4 plane = { 0.0f, 0.0f, 1.0f, 0.0f };
+		float tA = (0.1f - clippedVertex.ClipPosition.z) / (unclippedVertexA.ClipPosition.z - clippedVertex.ClipPosition.z);
+		newVertexA = LerpVertexShaderOutput(clippedVertex, unclippedVertexA, tA);
 
-		float pC = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, clippedVertex.ClipPosition));
-		float pA = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, unclippedVertexA.ClipPosition));
-		float pB = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, unclippedVertexB.ClipPosition));
-
-		assert(pC < 0.0f);
-		assert(pA >= 0.0f);
-		assert(pB >= 0.0f);
-
-		float tA = pC / (pC - pA);
-		newVertexA = LerpVertexShaderOutput(unclippedVertexA, clippedVertex, tA);
-
-		float tB = pC / (pC - pB);
-		newVertexB = LerpVertexShaderOutput(unclippedVertexB, clippedVertex, tB);
+		float tB = (0.1f - clippedVertex.ClipPosition.z) / (unclippedVertexB.ClipPosition.z - clippedVertex.ClipPosition.z);
+		newVertexB = LerpVertexShaderOutput(clippedVertex, unclippedVertexB, tB);
 
 		RasterizationPoint unclippedA = CreateRasterizationPoint(unclippedVertexA);
 		RasterizationPoint unclippedB = CreateRasterizationPoint(unclippedVertexB);
@@ -153,21 +143,11 @@ void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 		VertexShaderOutput newVertexA;
 		VertexShaderOutput newVertexB;
 
-		Vector4 plane = { 0.0f, 0.0f, 1.0f, 0.0f };
+		float tA = (0.1f - unclippedVertex.ClipPosition.z) / (clippedVertexA.ClipPosition.z - unclippedVertex.ClipPosition.z);
+		newVertexA = LerpVertexShaderOutput(unclippedVertex, clippedVertexA, tA);
 
-		float pU = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, unclippedVertex.ClipPosition));
-		float pA = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, clippedVertexA.ClipPosition));
-		float pB = DirectX::XMVectorGetX(DirectX::XMPlaneDot(plane, clippedVertexB.ClipPosition));
-
-		assert(pU >= 0.0f);
-		assert(pA < 0.0f);
-		assert(pB < 0.0f);
-
-		float tA = pU / (pU - pA);
-		newVertexA = LerpVertexShaderOutput(clippedVertexA, unclippedVertex, tA);
-
-		float tB = pU / (pU - pB);
-		newVertexB = LerpVertexShaderOutput(clippedVertexB, unclippedVertex, tB);
+		float tB = (0.1f - unclippedVertex.ClipPosition.z) / (clippedVertexB.ClipPosition.z - unclippedVertex.ClipPosition.z);
+		newVertexB = LerpVertexShaderOutput(unclippedVertex, clippedVertexB, tB);
 
 		TrianglePrimitive& prim = triangles.emplace_back();
 
@@ -389,8 +369,7 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 	const Vector3 specColor = Vector3(1.0f, 1.0f, 1.0f);
 
-	//Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
-	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->SampleLevel(aPixelInput.UV, 0);
+	Color diffuseMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Diffuse)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
 	if (diffuseMap.A() < 0.01f)
 		return;
 
@@ -401,8 +380,7 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	calculatedNormals.Normalize();
 	if (myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->IsEmpty() == false)
 	{
-		//Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
-		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->SampleLevel(aPixelInput.UV, 0);
+		Vector4 normalMap = myTextureResources[static_cast<unsigned>(Material::TextureSlot::Normal)]->TrilinearSample(aPixelInput.UV, aPixelInput.UVDerivatives);
 		calculatedNormals.x = (normalMap.x - 0.5f) * 2.0f;
 		calculatedNormals.y = (normalMap.y - 0.5f) * 2.0f;
 		calculatedNormals.z = sqrt(1 - std::clamp((calculatedNormals.x * calculatedNormals.x + calculatedNormals.y * calculatedNormals.y), 0.0f, 1.0f));
