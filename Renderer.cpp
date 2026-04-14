@@ -274,9 +274,9 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 	assert(boundsStartYPixel <= boundsEndYPixel);
 
 	PIXScopedEvent(PIX_COLOR_INDEX(0), "Checking pixels inside triangle");
-	for (int y = boundsStartYPixel; y < boundsEndYPixel; y++)
+	for (int y = boundsStartYPixel; y <= boundsEndYPixel; y++)
 	{
-		for (int x = boundsStartXPixel; x < boundsEndXPixel; x++)
+		for (int x = boundsStartXPixel; x <= boundsEndXPixel; x++)
 		{
 			int currentPixelIndex = x + static_cast<int>(renderTarget.Width) * y;
 			if (currentPixelIndex > static_cast<int>(renderTarget.GetSize()))

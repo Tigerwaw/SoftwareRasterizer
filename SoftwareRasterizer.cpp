@@ -10,6 +10,9 @@
 #include "Utilities.hpp"
 #include "Renderer.h"
 
+constexpr int WIDTH = 1280;
+constexpr int HEIGHT = 720;
+
 static void RenderStillObject()
 {
 	Renderer renderer;
@@ -307,15 +310,15 @@ static void RenderRotatingCubes()
 	}
 }
 
-static void RenderSponza()
+static void RenderSponza(RenderTarget& aRenderTarget)
 {
 	std::vector<Object> objects;
 	LoadObjects(objects);
 
 	Renderer renderer;
 
-	RenderTarget renderTarget;
-	renderTarget.Initialize(1024, 1024);
+	RenderTarget& renderTarget = aRenderTarget;
+	renderTarget.Initialize(WIDTH, HEIGHT);
 
 	Camera camera;
 	camera.Width = renderTarget.Width;
@@ -359,14 +362,115 @@ static void RenderSponza()
 		index++;
 	}
 	
-	WriteDataToBMPFile(std::filesystem::path("render.bmp"), renderTarget);
+	//WriteDataToBMPFile(std::filesystem::path("render.bmp"), renderTarget);
 }
 
-int main()
+
+bool gIsRunning = true;
+LRESULT CALLBACK WinProc(HWND aHwnd, UINT aMsg, WPARAM aWParam, LPARAM aLParam)
+{
+	switch (aMsg)
+	{
+		case WM_PAINT:
+		{
+			PAINTSTRUCT ps;
+			HDC hdc = BeginPaint(aHwnd, &ps);
+
+			RenderTarget rt;
+			RenderSponza(rt);
+			for (int y = 0; y < static_cast<int>(rt.Height); y++)
+			{
+				for (int x = 0; x < static_cast<int>(rt.Width); x++)
+				{
+					Vector4 color = rt.TextureData[rt.GetPixelIndex({ x, y })];
+					SetPixel(hdc, x, rt.Height - y, RGB(color.x * 255.0f, color.y * 255.0f, color.z * 255.0f));
+				}
+			}
+
+			EndPaint(aHwnd, &ps);
+			break;
+		}
+		case WM_QUIT:
+		{
+			gIsRunning = false;
+			break;
+		}
+		case WM_DESTROY:
+		{
+			gIsRunning = false;
+			break;
+		}
+	}
+
+	return DefWindowProc(aHwnd, aMsg, aWParam, aLParam);
+}
+
+int WINAPI wWinMain(HINSTANCE aHInstance, HINSTANCE aHPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
 	//RenderStillObject();
 	//RenderMultipleCubes(renderer, renderTarget, camera, object);
 	//RenderRotatingCube(renderer, renderTarget, camera, object);
 	//RenderRotatingCubes(renderer, renderTarget, camera, object);
-	RenderSponza();
+	//RenderSponza();
+
+	#ifndef _RETAIL
+	// Redirect stdout and stderr to the console.
+	FILE* consoleOut;
+	FILE* consoleErr;
+	AllocConsole();
+	freopen_s(&consoleOut, "CONOUT$", "w", stdout);  // NOLINT(cert-err33-c)
+	setvbuf(consoleOut, nullptr, _IONBF, 1024);  // NOLINT(cert-err33-c)
+	freopen_s(&consoleErr, "CONOUT$", "w", stderr);  // NOLINT(cert-err33-c)
+	setvbuf(consoleErr, nullptr, _IONBF, 1024);  // NOLINT(cert-err33-c)
+
+	SetConsoleOutputCP(CP_UTF8);
+
+	HWND consoleWindow = GetConsoleWindow();
+	RECT consoleSize = {};
+	GetWindowRect(consoleWindow, &consoleSize);
+	MoveWindow(consoleWindow, consoleSize.left, consoleSize.top, 1280, 720, true);
+	#endif
+
+	LPCWSTR className = L"SRWIND";
+
+	WNDCLASS wc = {};
+	wc.lpfnWndProc = WinProc;
+	wc.hInstance = aHInstance;
+	wc.lpszClassName = className;
+
+	RegisterClass(&wc);
+
+	HWND hwnd = CreateWindowEx(0,
+							   className,
+							   L"Software Rasterizer",
+							   WS_OVERLAPPEDWINDOW,
+							   CW_USEDEFAULT,
+							   CW_USEDEFAULT,
+							   WIDTH,
+							   HEIGHT,
+							   NULL,
+							   NULL,
+							   aHInstance,
+							   NULL);
+
+	if (hwnd == NULL)
+		return 0;
+
+	ShowWindow(hwnd, nCmdShow);
+
+	gIsRunning = true;
+	while (gIsRunning)
+	{
+		MSG msg = {};
+		while (GetMessage(&msg, NULL, 0, 0) > 0)
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+	}
+
+	PostQuitMessage(0);
+	DestroyWindow(hwnd);
+	DestroyWindow(consoleWindow);
+	return 0;
 }

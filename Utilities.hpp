@@ -347,7 +347,7 @@ static void WriteDataToBMPFile(const std::filesystem::path& aFilePath, const Tex
 	file.write(fileHeader, headerSize);
 	file.write(infoHeader, infoHeaderSize);
 
-	for (int y = 0; y < static_cast<int>(height); y++)
+	for (int y = static_cast<int>(height - 1); y >= 0; y--)
 	{
 		for (int x = 0; x < static_cast<int>(width); x++)
 		{
