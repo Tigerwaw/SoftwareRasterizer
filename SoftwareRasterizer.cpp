@@ -9,6 +9,7 @@
 #include "DataStructs.hpp"
 #include "Utilities.hpp"
 #include "Renderer.h"
+#include "TaskSystem.hpp"
 
 constexpr int WIDTH = 1280;
 constexpr int HEIGHT = 720;
@@ -310,7 +311,7 @@ static void RenderRotatingCubes()
 	}
 }
 
-static void RenderSponza(RenderTarget& aRenderTarget)
+static bool RenderSponza(RenderTarget& aRenderTarget)
 {
 	std::vector<Object> objects;
 	LoadObjects(objects);
@@ -363,33 +364,14 @@ static void RenderSponza(RenderTarget& aRenderTarget)
 	}
 	
 	//WriteDataToBMPFile(std::filesystem::path("render.bmp"), renderTarget);
+	return true;
 }
-
 
 bool gIsRunning = true;
 LRESULT CALLBACK WinProc(HWND aHwnd, UINT aMsg, WPARAM aWParam, LPARAM aLParam)
 {
 	switch (aMsg)
 	{
-		case WM_PAINT:
-		{
-			PAINTSTRUCT ps;
-			HDC hdc = BeginPaint(aHwnd, &ps);
-
-			RenderTarget rt;
-			RenderSponza(rt);
-			for (int y = 0; y < static_cast<int>(rt.Height); y++)
-			{
-				for (int x = 0; x < static_cast<int>(rt.Width); x++)
-				{
-					Vector4 color = rt.TextureData[rt.GetPixelIndex({ x, y })];
-					SetPixel(hdc, x, rt.Height - y, RGB(color.x * 255.0f, color.y * 255.0f, color.z * 255.0f));
-				}
-			}
-
-			EndPaint(aHwnd, &ps);
-			break;
-		}
 		case WM_QUIT:
 		{
 			gIsRunning = false;
@@ -457,6 +439,24 @@ int WINAPI wWinMain(HINSTANCE aHInstance, HINSTANCE aHPrevInstance, PWSTR pCmdLi
 		return 0;
 
 	ShowWindow(hwnd, nCmdShow);
+
+	PAINTSTRUCT ps;
+	HDC hdc = BeginPaint(hwnd, &ps);
+
+	RenderTarget rt;
+	RenderSponza(rt);
+	for (int y = 0; y < static_cast<int>(rt.Height); y++)
+	{
+		for (int x = 0; x < static_cast<int>(rt.Width); x++)
+		{
+			Vector4 color = rt.TextureData[rt.GetPixelIndex({ x, y })];
+			SetPixel(hdc, x, rt.Height - y, RGB(color.x * 255.0f, color.y * 255.0f, color.z * 255.0f));
+		}
+	}
+
+	EndPaint(hwnd, &ps);
+
+	UpdateWindow(hwnd);
 
 	gIsRunning = true;
 	while (gIsRunning)

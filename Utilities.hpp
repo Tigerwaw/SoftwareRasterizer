@@ -1,10 +1,10 @@
 #pragma once
 #include "SimpleMath.h"
 #include "DataStructs.hpp"
+#include "TaskSystem.hpp"
 #include <chrono>
 #include <iostream>
 #include <fstream>
-#include <future>
 
 #include <Windows.h>
 #undef min
@@ -517,11 +517,12 @@ static void LoadMaterials(std::vector<Material>& aMaterialList)
 
 	file.close();
 
+	TaskSystem& ts = TaskSystem::GetInstance();
 	std::vector<std::future<void>> texFutures;
 
 	for (auto& [materialIndex, filePath] : diffuseTexturePaths)
 	{
-		texFutures.emplace_back(std::async(std::launch::async, [filePath, materialIndex, &aMaterialList]() mutable
+		texFutures.emplace_back(ts.SubmitTask([filePath, materialIndex, &aMaterialList]() mutable
 			{
 				Texture tempTex;
 				LoadBMPFile(filePath.wstring().c_str(), tempTex);
@@ -531,7 +532,7 @@ static void LoadMaterials(std::vector<Material>& aMaterialList)
 
 	for (auto& [materialIndex, filePath] : normalTexturePaths)
 	{
-		texFutures.emplace_back(std::async(std::launch::async, [filePath, materialIndex, &aMaterialList]() mutable
+		texFutures.emplace_back(ts.SubmitTask([filePath, materialIndex, &aMaterialList]() mutable
 			{
 				Texture tempTex;
 				LoadBMPFile(filePath.wstring().c_str(), tempTex);

@@ -135,6 +135,9 @@
   <ItemGroup>
     <ClInclude Include="DataStructs.hpp" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="TaskSystem.hpp" />
+    <ClInclude Include="ThreadJoiner.hpp" />
+    <ClInclude Include="ThreadsafeQueue.hpp" />
     <ClInclude Include="Utilities.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

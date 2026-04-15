@@ -1,6 +1,5 @@
 #include "Renderer.h"
 #include "Utilities.hpp"
-#include <future>
 
 #include <Windows.h>
 #undef min
@@ -61,6 +60,7 @@ void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 {
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
+	// PARALLELIZE
 	std::array<VertexShaderOutput, 3> vertexOutputs;
 	vertexOutputs[0] = VertexShader(aVertices[0]);
 	vertexOutputs[1] = VertexShader(aVertices[1]);
@@ -176,6 +176,7 @@ void Renderer::DrawTriangle(const std::array<Vertex, 3>& aVertices)
 		if (pixelList.empty())
 			continue;
 
+		// PARALLELIZE
 		PIXScopedEvent(PIX_COLOR_INDEX(0), "Pixel Shader Loop");
 		for (auto& pixel : pixelList)
 		{
@@ -273,6 +274,7 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 	assert(boundsStartXPixel <= boundsEndXPixel);
 	assert(boundsStartYPixel <= boundsEndYPixel);
 
+	// PARALLELIZE
 	PIXScopedEvent(PIX_COLOR_INDEX(0), "Checking pixels inside triangle");
 	for (int y = boundsStartYPixel; y <= boundsEndYPixel; y++)
 	{
@@ -305,6 +307,7 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 				float linearDepth = powf(1.0f - d, 0.5f);
 				result.VisualDepth = linearDepth;
 
+				// Move to pixel shader pre-preprocessing
 				Vector2 rightUVs = result.UV;
 				Vector3 rightWeights;
 				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(1, 0), wElements, rightWeights))
@@ -325,6 +328,7 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 				result.UVDerivatives.dv_dx = rightUVs.y - result.UV.y;
 				result.UVDerivatives.du_dy = downUVs.x - result.UV.x;
 				result.UVDerivatives.dv_dy = downUVs.y - result.UV.y;
+				//
 			}
 		}
 	}
