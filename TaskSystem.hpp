@@ -43,6 +43,9 @@ inline TaskSystem::TaskSystem() : myIsDone(false), myThreadJoiner(myThreads)
 		for (unsigned i = 0; i < threadCount; i++)
 		{
 			myThreads.push_back(std::thread(&TaskSystem::WorkerThread, this));
+			std::string str = "WorkerThread_" + std::to_string(i);
+			std::wstring wstr = std::wstring(str.begin(), str.end());
+			SetThreadDescription(myThreads[i].native_handle(), wstr.c_str());
 		}
 	}
 	catch (...)
