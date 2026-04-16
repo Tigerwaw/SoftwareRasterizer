@@ -254,7 +254,6 @@ struct PixelShaderInput
 {
 	unsigned RenderTargetIndex;
 	float Depth;
-	float VisualDepth;
 	Vector2 Position;
 	Vector4 Color;
 	Vector2 UV;

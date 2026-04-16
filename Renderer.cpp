@@ -46,13 +46,23 @@ void Renderer::Render()
 
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
+	TaskSystem& ts = TaskSystem::GetInstance();
+	std::vector<std::future<void>> futureTris;
 	for (unsigned index = 0; index < static_cast<unsigned>(myIndexBuffer.size()); index += 3)
 	{
-		std::array<Vertex, 3> vertices = {
-			myVertexBuffer[myIndexBuffer[index + 0]],
-			myVertexBuffer[myIndexBuffer[index + 1]],
-			myVertexBuffer[myIndexBuffer[index + 2]] };
-		DrawTriangle(vertices);
+		futureTris.emplace_back(ts.SubmitTask([this, index]()
+		{
+			std::array<Vertex, 3> vertices = {
+				myVertexBuffer[myIndexBuffer[index + 0]],
+				myVertexBuffer[myIndexBuffer[index + 1]],
+				myVertexBuffer[myIndexBuffer[index + 2]] };
+			DrawTriangle(vertices);
+		}));
+	}
+
+	for (auto& future : futureTris)
+	{
+		future.wait();
 	}
 }
 
@@ -303,10 +313,6 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 				PixelShaderInput& result = outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
 				result.Depth = pixelDepth;
 
-				float d = (abs(pixelDepth) - myShaderBuffer->NearPlane) / (myShaderBuffer->FarPlane - myShaderBuffer->NearPlane);
-				float linearDepth = powf(1.0f - d, 0.5f);
-				result.VisualDepth = linearDepth;
-
 				// Move to pixel shader pre-preprocessing
 				Vector2 rightUVs = result.UV;
 				Vector3 rightWeights;
@@ -416,4 +422,8 @@ void Renderer::PixelShader(const PixelShaderInput& aPixelInput)
 	color.Saturate();
 
 	myRenderTarget->TextureData[aPixelInput.RenderTargetIndex] = color;
+
+	//float d = (abs(aPixelInput.Depth) - myShaderBuffer->NearPlane) / (myShaderBuffer->FarPlane - myShaderBuffer->NearPlane);
+	//float linearDepth = powf(1.0f - d, 0.5f);
+	//myRenderTarget->TextureData[aPixelInput.RenderTargetIndex] = { linearDepth, linearDepth, linearDepth, 1.0f };
 }
