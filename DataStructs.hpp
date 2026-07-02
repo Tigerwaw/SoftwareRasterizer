@@ -14,10 +14,10 @@ using namespace DirectX::SimpleMath;
 
 struct UV_Derivatives
 {
-	float du_dx;
-	float dv_dx;
-	float du_dy;
-	float dv_dy;
+	float du_dx = 0.0f;
+	float dv_dx = 0.0f;
+	float du_dy = 0.0f;
+	float dv_dy = 0.0f;
 };
 
 struct Texture

@@ -11,8 +11,8 @@
 #include "Renderer.h"
 #include "TaskSystem.hpp"
 
-constexpr int WIDTH = 1280;
-constexpr int HEIGHT = 720;
+constexpr int WIDTH = 1024;
+constexpr int HEIGHT = 1024;
 
 static void RenderStillObject()
 {

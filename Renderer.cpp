@@ -46,23 +46,13 @@ void Renderer::Render()
 
 	PIXScopedEvent(PIX_COLOR_INDEX(0), __func__);
 
-	TaskSystem& ts = TaskSystem::GetInstance();
-	std::vector<std::future<void>> futureTris;
 	for (unsigned index = 0; index < static_cast<unsigned>(myIndexBuffer.size()); index += 3)
 	{
-		futureTris.emplace_back(ts.SubmitTask([this, index]()
-		{
-			std::array<Vertex, 3> vertices = {
+		std::array<Vertex, 3> vertices = {
 				myVertexBuffer[myIndexBuffer[index + 0]],
 				myVertexBuffer[myIndexBuffer[index + 1]],
 				myVertexBuffer[myIndexBuffer[index + 2]] };
-			DrawTriangle(vertices);
-		}));
-	}
-
-	for (auto& future : futureTris)
-	{
-		future.wait();
+		DrawTriangle(vertices);
 	}
 }
 
@@ -291,53 +281,113 @@ void Renderer::RasterizeTriangle(const TrianglePrimitive& aTriangle, std::vector
 		for (int x = boundsStartXPixel; x <= boundsEndXPixel; x++)
 		{
 			int currentPixelIndex = x + static_cast<int>(renderTarget.Width) * y;
-			if (currentPixelIndex > static_cast<int>(renderTarget.GetSize()))
+			if (currentPixelIndex >= static_cast<int>(renderTarget.GetSize()))
 				break;
 
-			Vector2 pixelPosition = { static_cast<float>(x), static_cast<float>(y) };
-			Vector3 weights = {};
-			Vector2 screenPositions[3] = { aTriangle.RasterizationPoints[0].ScreenPos, aTriangle.RasterizationPoints[1].ScreenPos, aTriangle.RasterizationPoints[2].ScreenPos };
-			Vector3 wElements(aTriangle.RasterizationPoints[0].W, aTriangle.RasterizationPoints[1].W, aTriangle.RasterizationPoints[2].W);
-			if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition, wElements, weights))
-			{
-				if (weights.x < 0.0f || weights.x > 1.0f || weights.y < 0.0f || weights.y > 1.0f || weights.z < 0.0f || weights.z > 1.0f)
-					continue;
-				
-				float pixelDepth = aTriangle.Vertices[0].ViewPosition.z * weights.x +
-					aTriangle.Vertices[1].ViewPosition.z * weights.y +
-					aTriangle.Vertices[2].ViewPosition.z * weights.z;
-				if (pixelDepth > renderTarget.Depth[currentPixelIndex])
-					continue;
-
-				renderTarget.Depth[currentPixelIndex] = pixelDepth;
-				PixelShaderInput& result = outPixelList.emplace_back(InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights));
-				result.Depth = pixelDepth;
-
-				// Move to pixel shader pre-preprocessing
-				Vector2 rightUVs = result.UV;
-				Vector3 rightWeights;
-				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(1, 0), wElements, rightWeights))
-				{
-					rightUVs.x = aTriangle.Vertices[0].UV.x * rightWeights.x + aTriangle.Vertices[1].UV.x * rightWeights.y + aTriangle.Vertices[2].UV.x * rightWeights.z;
-					rightUVs.y = aTriangle.Vertices[0].UV.y * rightWeights.x + aTriangle.Vertices[1].UV.y * rightWeights.y + aTriangle.Vertices[2].UV.y * rightWeights.z;
-				}
-
-				Vector2 downUVs = result.UV;
-				Vector3 downWeights;
-				if (IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition + Vector2(0, 1), wElements, downWeights))
-				{
-					downUVs.x = aTriangle.Vertices[0].UV.x * downWeights.x + aTriangle.Vertices[1].UV.x * downWeights.y + aTriangle.Vertices[2].UV.x * downWeights.z;
-					downUVs.y = aTriangle.Vertices[0].UV.y * downWeights.x + aTriangle.Vertices[1].UV.y * downWeights.y + aTriangle.Vertices[2].UV.y * downWeights.z;
-				}
-
-				result.UVDerivatives.du_dx = rightUVs.x - result.UV.x;
-				result.UVDerivatives.dv_dx = rightUVs.y - result.UV.y;
-				result.UVDerivatives.du_dy = downUVs.x - result.UV.x;
-				result.UVDerivatives.dv_dy = downUVs.y - result.UV.y;
-				//
-			}
+			ProcessPixelBlock(x, y, aTriangle, outPixelList);
 		}
 	}
+}
+
+void Renderer::ProcessPixelBlock(int aX, int aY, const TrianglePrimitive& aTriangle, std::vector<PixelShaderInput>& outPixelList)
+{
+	PixelShaderInput topLeftPixel;
+	PixelShaderInput topRightPixel;
+	PixelShaderInput bottomLeftPixel;
+	PixelShaderInput bottomRightPixel;
+
+	bool topLeftPassed = TestAndProcessPixel(aX, aY, aTriangle, topLeftPixel);
+	bool topRightPassed = TestAndProcessPixel(aX + 1, aY, aTriangle, topRightPixel);
+	bool bottomLeftPassed = TestAndProcessPixel(aX, aY + 1, aTriangle, bottomLeftPixel);
+	bool bottomRightPassed = TestAndProcessPixel(aX + 1, aY + 1, aTriangle, bottomRightPixel);
+
+	float du_dx = 0.0f;
+	float dv_dx = 0.0f;
+	float du_dy = 0.0f;
+	float dv_dy = 0.0f;
+
+	if (topLeftPassed && topRightPassed)
+	{
+		du_dx = topRightPixel.UV.x - topLeftPixel.UV.x;
+		dv_dx = topRightPixel.UV.y - topLeftPixel.UV.y;
+	}
+
+	if (bottomLeftPassed && topLeftPassed)
+	{
+		du_dy = bottomLeftPixel.UV.x - topLeftPixel.UV.x;
+		dv_dy = bottomLeftPixel.UV.y - topLeftPixel.UV.y;
+	}
+
+	if (topLeftPassed)
+	{
+		topLeftPixel.UVDerivatives.du_dx = du_dx;
+		topLeftPixel.UVDerivatives.dv_dx = dv_dx;
+		topLeftPixel.UVDerivatives.du_dy = du_dy;
+		topLeftPixel.UVDerivatives.dv_dy = dv_dy;
+		outPixelList.push_back(topLeftPixel);
+	}
+
+	if (topRightPassed)
+	{
+		topRightPixel.UVDerivatives.du_dx = -du_dx;
+		topRightPixel.UVDerivatives.dv_dx = -dv_dx;
+		topRightPixel.UVDerivatives.du_dy = du_dy;
+		topRightPixel.UVDerivatives.dv_dy = dv_dy;
+		outPixelList.push_back(topRightPixel);
+	}
+
+	if (bottomLeftPassed)
+	{
+		bottomLeftPixel.UVDerivatives.du_dx = du_dx;
+		bottomLeftPixel.UVDerivatives.dv_dx = dv_dx;
+		bottomLeftPixel.UVDerivatives.du_dy = -du_dy;
+		bottomLeftPixel.UVDerivatives.dv_dy = -dv_dy;
+		outPixelList.push_back(bottomLeftPixel);
+	}
+
+	if (bottomRightPassed)
+	{
+		bottomRightPixel.UVDerivatives.du_dx = -du_dx;
+		bottomRightPixel.UVDerivatives.dv_dx = -dv_dx;
+		bottomRightPixel.UVDerivatives.du_dy = -du_dy;
+		bottomRightPixel.UVDerivatives.dv_dy = -dv_dy;
+		outPixelList.push_back(bottomRightPixel);
+	}
+}
+
+bool Renderer::TestAndProcessPixel(int aX, int aY, const TrianglePrimitive& aTriangle, PixelShaderInput& outPixelInput)
+{
+	assert(myRenderTarget != nullptr);
+	auto& renderTarget = *myRenderTarget;
+
+	Vector2 screenPositions[3] = { aTriangle.RasterizationPoints[0].ScreenPos, aTriangle.RasterizationPoints[1].ScreenPos, aTriangle.RasterizationPoints[2].ScreenPos };
+	Vector3 wElements(aTriangle.RasterizationPoints[0].W, aTriangle.RasterizationPoints[1].W, aTriangle.RasterizationPoints[2].W);
+
+	int x = aX;
+	int y = aY;
+	int currentPixelIndex = x + static_cast<int>(renderTarget.Width) * y;
+	if (currentPixelIndex >= static_cast<int>(renderTarget.GetSize()))
+		return false;
+	
+	Vector2 pixelPosition = { static_cast<float>(x), static_cast<float>(y) };
+	Vector3 weights = {};
+	if (!IsPointInsideTriangle(screenPositions[0], screenPositions[1], screenPositions[2], pixelPosition, wElements, weights))
+		return false;
+
+	if (weights.x < 0.0f || weights.x > 1.0f || weights.y < 0.0f || weights.y > 1.0f || weights.z < 0.0f || weights.z > 1.0f)
+		return false;
+
+	float pixelDepth = aTriangle.Vertices[0].ViewPosition.z * weights.x +
+		aTriangle.Vertices[1].ViewPosition.z * weights.y +
+		aTriangle.Vertices[2].ViewPosition.z * weights.z;
+
+	if (pixelDepth > renderTarget.Depth[currentPixelIndex])
+		return false;
+
+	renderTarget.Depth[currentPixelIndex] = pixelDepth;
+	outPixelInput = InterpolatePixelValues(aTriangle, currentPixelIndex, pixelPosition, weights);
+	outPixelInput.Depth = pixelDepth;
+	return true;
 }
 
 PixelShaderInput Renderer::InterpolatePixelValues(const TrianglePrimitive& aTriangle, unsigned aRenderTargetIndex, Vector2 aPixelPosition, Vector3 aWeights)
